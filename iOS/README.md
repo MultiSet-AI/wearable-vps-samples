@@ -94,8 +94,8 @@ The app displays connection status on the home screen:
 ### Capturing Photos
 
 During streaming, you can capture photos by:
-1. Tapping the **capture button** on screen
-2. The captured image can be used for localization
+1. Tapping the **capture (localization) button** on screen
+2. The captured image will be used for localization
 
 ---
 
