@@ -191,11 +191,11 @@ struct NonStreamView: View {
       )
 
       // Map status
-      if !config.mapCode.isEmpty {
+      if !LocalizationConfig.mapCode.isEmpty {
         HStack(spacing: 6) {
           Image(systemName: "map.fill")
             .font(.system(size: 12))
-          Text(config.mapCode)
+          Text(LocalizationConfig.mapCode)
             .font(.system(size: 12, weight: .medium, design: .monospaced))
         }
         .foregroundColor(AppColors.accentPurple)

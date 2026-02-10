@@ -67,7 +67,7 @@ actor AuthManager {
             throw AuthError.notConfigured
         }
 
-        let credentials = "\(config.clientID):\(config.clientSecret)"
+        let credentials = "\(LocalizationConfig.clientId):\(LocalizationConfig.clientSecret)"
         guard let credentialsData = credentials.data(using: .utf8) else {
             throw AuthError.invalidCredentials
         }

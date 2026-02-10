@@ -34,19 +34,30 @@ open MultisetWearable.xcodeproj
 
 ### 2. Configure API Credentials
 
-The app requires MultiSet VPS API credentials. You can configure them in two ways:
+**Important**: Configure your credentials before building the app.
 
-**Option A: Build Variables (Recommended for development)**
+Edit `MultisetWearable/Services/LocalizationConfig.swift` and fill in the configuration section:
 
-Add to your Xcode scheme environment variables:
-- `MULTISET_CLIENT_ID`: Your client ID
-- `MULTISET_CLIENT_SECRET`: Your client secret
+```swift
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║                    CONFIGURE YOUR CREDENTIALS HERE                          ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
 
-get these credentials from MultiSet developer portal : https://developer.multiset.ai/credentials
+/// Your MultiSet Client ID
+static let clientId = "your_client_id_here"
 
-**Option B: Default Credentials**
+/// Your MultiSet Client Secret
+static let clientSecret = "your_client_secret_here"
 
-The app includes default demo credentials in `LocalizationConfig.swift` for testing.
+/// Your Map Code for single-map localization (e.g., "MAP_XXXXXXXXXX")
+static let mapCode = "MAP_XXXXXXXXXX"
+
+/// Your Map Set Code for multi-map localization
+/// Leave empty if using mapCode instead
+static let mapSetCode = ""
+```
+
+Get your credentials from the MultiSet Developer Portal: https://developer.multiset.ai/credentials
 
 ### 3. Build and Run
 
@@ -193,11 +204,11 @@ User Localizes → Selects POI → Path Calculated → Navigation Starts
 
 ---
 
-## Importing Navigation Data from Unity
+## Importing NavMesh Data from Unity
 
-### Unity POI Data Export Scene
+### Unity NavMeshExport Scene
 
-The navigation system requires POI and waypoint data exported from Unity. This data is generated using the **MultiSet Unity SDK's POI Data Export Scene**.
+The navigation system requires NavMesh data that includes POI and waypoint data exported from Unity. This data is generated using the **MultiSet Unity SDK's NavMeshExport Scene**.
 
 ### Data Structure Reference
 
@@ -235,9 +246,9 @@ The navigation system requires POI and waypoint data exported from Unity. This d
 
 1. **Export from Unity**:
    - Open your Unity project with MultiSet SDK
-   - Use the POI Data Export Scene to generate the JSON
-   - Name the file: `{mapCode}_navigation_data.json`
-   - Example: `MAP_QTTSRGRYP7HR_navigation_data.json`
+   - Use the NavMeshExport Scene to generate the JSON
+   - Use NavMeshExportManager to Generate and export Navigation data.
+   - A file: `{mapCode}_navigation_data.json` will be exported in the ExportedData folder.
 
 2. **Add to Xcode Project**:
    - Locate the file in Finder

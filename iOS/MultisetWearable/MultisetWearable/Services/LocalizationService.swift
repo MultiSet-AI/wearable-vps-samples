@@ -187,11 +187,11 @@ final class LocalizationService {
         addField("height", "\(imageHeight)")
 
         // Map codes
-        if !config.mapCode.isEmpty {
-            addField("mapCode", config.mapCode)
+        if !LocalizationConfig.mapCode.isEmpty {
+            addField("mapCode", LocalizationConfig.mapCode)
         }
-        if !config.mapSetCode.isEmpty {
-            addField("mapSetCode", config.mapSetCode)
+        if !LocalizationConfig.mapSetCode.isEmpty {
+            addField("mapSetCode", LocalizationConfig.mapSetCode)
         }
 
         // Image file

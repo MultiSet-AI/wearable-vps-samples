@@ -231,8 +231,7 @@ final class NavigationDataService {
 
     private func loadNavigationData() {
         // Use mapCode or mapSetCode from config to build dynamic filename
-        let config = LocalizationConfig.shared
-        let codeToUse = !config.mapCode.isEmpty ? config.mapCode : config.mapSetCode
+        let codeToUse = !LocalizationConfig.mapCode.isEmpty ? LocalizationConfig.mapCode : LocalizationConfig.mapSetCode
         let fileName = "\(codeToUse)_navigation_data"
 
         guard !codeToUse.isEmpty else {

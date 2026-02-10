@@ -8,6 +8,8 @@ Redistribution in source or binary forms must retain this notice.
 import Foundation
 
 /// Configuration for the Multiset Localization SDK
+/// **IMPORTANT**: Fill in your credentials below before building the app.
+/// Get your credentials from: https://developer.multiset.ai/credentials
 final class LocalizationConfig {
 
     // MARK: - Singleton
@@ -17,64 +19,34 @@ final class LocalizationConfig {
     static let authURL = "https://api.multiset.ai/v1/m2m/token"
     static let queryURL = "https://api.multiset.ai/v1/vps/map/query-form"
 
-    // MARK: - UserDefaults Keys
+    // ╔════════════════════════════════════════════════════════════════════════════╗
+    // ║                    CONFIGURE YOUR CREDENTIALS HERE                          ║
+    // ║  Fill in these values before building the app.                              ║
+    // ║  Get credentials from: https://developer.multiset.ai/credentials            ║
+    // ╚════════════════════════════════════════════════════════════════════════════╝
+
+    /// Your MultiSet Client ID
+    static let clientId = ""
+
+    /// Your MultiSet Client Secret
+    static let clientSecret = ""
+
+    /// Your Map Code for single-map localization (e.g., "MAP_XXXXXXXXXX")
+    /// Leave empty if using mapSetCode instead
+    static let mapCode = ""
+
+    /// Your Map Set Code for multi-map localization (e.g., "MAPSET_XXXXXXXXXX")
+    /// Leave empty if using mapCode instead
+    static let mapSetCode = ""
+
+    // ╔════════════════════════════════════════════════════════════════════════════╗
+    // ║                      END OF CONFIGURATION SECTION                           ║
+    // ╚════════════════════════════════════════════════════════════════════════════╝
+
+    // MARK: - UserDefaults Keys (for camera intrinsics only)
     private enum Keys {
-        static let mapCode = "multiset_map_code"
-        static let mapSetCode = "multiset_map_set_code"
         static let intrinsicsPreset = "multiset_intrinsics_preset"
         static let customFocalLength = "multiset_custom_focal_length"
-    }
-
-    // MARK: - Default Credentials
-    private static let defaultClientID = ""
-    private static let defaultClientSecret = ""
-    
-    //MARK: - enter either MapCode or MapSetCode
-    private static let defaultMapCode = ""
-    private static let defaultMapSetCode = ""
-
-    // MARK: - Credentials (from Info.plist build variables or defaults)
-    var clientID: String {
-        if let config = Bundle.main.object(forInfoDictionaryKey: "MultisetConfig") as? [String: Any],
-           let clientID = config["ClientID"] as? String,
-           !clientID.isEmpty,
-           !clientID.hasPrefix("$(") {
-            return clientID
-        }
-        return Self.defaultClientID
-    }
-
-    var clientSecret: String {
-        if let config = Bundle.main.object(forInfoDictionaryKey: "MultisetConfig") as? [String: Any],
-           let clientSecret = config["ClientSecret"] as? String,
-           !clientSecret.isEmpty,
-           !clientSecret.hasPrefix("$(") {
-            return clientSecret
-        }
-        return Self.defaultClientSecret
-    }
-
-    // MARK: - Map Configuration (stored in UserDefaults)
-    var mapCode: String {
-        get {
-            let stored = UserDefaults.standard.string(forKey: Keys.mapCode)
-            if let stored = stored, !stored.isEmpty {
-                return stored
-            }
-            return Self.defaultMapCode
-        }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.mapCode) }
-    }
-
-    var mapSetCode: String {
-        get {
-            let stored = UserDefaults.standard.string(forKey: Keys.mapSetCode)
-            if let stored = stored, !stored.isEmpty {
-                return stored
-            }
-            return Self.defaultMapSetCode
-        }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.mapSetCode) }
     }
 
     // MARK: - Camera Intrinsics
@@ -127,14 +99,73 @@ final class LocalizationConfig {
 
     // MARK: - Validation
     var isConfigured: Bool {
-        !clientID.isEmpty && !clientSecret.isEmpty && (!mapCode.isEmpty || !mapSetCode.isEmpty)
+        !Self.clientId.isEmpty && !Self.clientSecret.isEmpty && (!Self.mapCode.isEmpty || !Self.mapSetCode.isEmpty)
     }
 
     var hasCredentials: Bool {
-        !clientID.isEmpty && !clientSecret.isEmpty
+        !Self.clientId.isEmpty && !Self.clientSecret.isEmpty
+    }
+
+    var hasMapConfiguration: Bool {
+        !Self.mapCode.isEmpty || !Self.mapSetCode.isEmpty
+    }
+
+    /// Returns list of missing configuration items
+    var missingConfiguration: [ConfigurationError] {
+        var errors: [ConfigurationError] = []
+        if Self.clientId.isEmpty {
+            errors.append(.missingClientID)
+        }
+        if Self.clientSecret.isEmpty {
+            errors.append(.missingClientSecret)
+        }
+        if Self.mapCode.isEmpty && Self.mapSetCode.isEmpty {
+            errors.append(.missingMapCode)
+        }
+        return errors
     }
 
     private init() {}
+}
+
+// MARK: - Configuration Errors
+enum ConfigurationError: String, CaseIterable, Identifiable {
+    case missingClientID
+    case missingClientSecret
+    case missingMapCode
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .missingClientID:
+            return "Missing Client ID"
+        case .missingClientSecret:
+            return "Missing Client Secret"
+        case .missingMapCode:
+            return "Missing Map Code"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .missingClientID:
+            return "Add your Client ID in LocalizationConfig.swift"
+        case .missingClientSecret:
+            return "Add your Client Secret in LocalizationConfig.swift"
+        case .missingMapCode:
+            return "Add a Map Code or Map Set Code in LocalizationConfig.swift"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .missingClientID, .missingClientSecret:
+            return "key.fill"
+        case .missingMapCode:
+            return "map.fill"
+        }
+    }
 }
 
 // MARK: - Camera Intrinsics Model

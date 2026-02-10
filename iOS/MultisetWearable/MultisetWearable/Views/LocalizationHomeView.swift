@@ -159,10 +159,10 @@ struct LocalizationHomeView: View {
     }
 
     private var mapDisplayText: String {
-        if !config.mapCode.isEmpty {
-            return config.mapCode
-        } else if !config.mapSetCode.isEmpty {
-            return config.mapSetCode
+        if !LocalizationConfig.mapCode.isEmpty {
+            return LocalizationConfig.mapCode
+        } else if !LocalizationConfig.mapSetCode.isEmpty {
+            return LocalizationConfig.mapSetCode
         }
         return "Not configured"
     }
