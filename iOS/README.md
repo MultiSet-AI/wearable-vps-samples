@@ -210,6 +210,9 @@ User Localizes → Selects POI → Path Calculated → Navigation Starts
 
 The navigation system requires NavMesh data that includes POI and waypoint data exported from Unity. This data is generated using the **MultiSet Unity SDK's NavMeshExport Scene**.
 
+- **MultiSet Unity SDK**: https://github.com/MultiSet-AI/multiset-unity-sdk
+- **SDK Documentation**: https://docs.multiset.ai/quick-access/multiset-unity-sdk
+
 ### Data Structure Reference
 
 #### POI (Point of Interest)
