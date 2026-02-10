@@ -1,4 +1,4 @@
-# MultiSet Wearable VPS
+# MultiSet VPS for Wearables
 
 A sample iOS application demonstrating Visual Positioning System (VPS) integration with Meta Ray-Ban Smart Glasses. This app showcases localization and turn-by-turn navigation using the MultiSet VPS API and Meta Wearables Device Access Toolkit (DAT SDK).
 
