@@ -159,10 +159,10 @@ struct LocalizationHomeView: View {
     }
 
     private var mapDisplayText: String {
-        if !LocalizationConfig.mapCode.isEmpty {
-            return LocalizationConfig.mapCode
-        } else if !LocalizationConfig.mapSetCode.isEmpty {
-            return LocalizationConfig.mapSetCode
+        if !config.mapCode.isEmpty {
+            return config.mapCode
+        } else if !config.mapSetCode.isEmpty {
+            return config.mapSetCode
         }
         return "Not configured"
     }
@@ -207,7 +207,7 @@ struct LocalizationHomeView: View {
     private var connectSection: some View {
         VStack(spacing: 12) {
             Button {
-                wearablesVM.connectGlasses()
+                Task { await wearablesVM.connectGlasses() }
             } label: {
                 HStack {
                     Image(systemName: "glasses")

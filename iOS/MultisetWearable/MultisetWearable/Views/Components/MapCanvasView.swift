@@ -30,40 +30,44 @@ struct MapCanvasView: View {
     // MARK: - Drawing Constants
 
     private enum DrawingConstants {
-        // Waypoints (base values, will be adjusted by density and zoom)
+        // Waypoints
         static let waypointRadiusBase: CGFloat = 2.0
         static let waypointRadiusMin: CGFloat = 1.0
         static let waypointRadiusMax: CGFloat = 3.0
-        static let waypointColorNormal = Color.white.opacity(0.20)
-        static let waypointColorNavigating = Color.white.opacity(0.08)
-        static let connectionColorNormal = Color.white.opacity(0.10)
-        static let connectionColorNavigating = Color.white.opacity(0.04)
-        static let connectionWidth: CGFloat = 0.6
+        static let waypointColorNormal = Color.white.opacity(0.15)
+        static let waypointColorNavigating = Color.white.opacity(0.06)
+        static let connectionColorNormal = Color.white.opacity(0.08)
+        static let connectionColorNavigating = Color.white.opacity(0.03)
+        static let connectionWidth: CGFloat = 0.5
 
         // Floor plane
-        static let floorPlaneColor = Color(white: 0.12)
-        static let floorPlanePadding: CGFloat = 12
+        static let floorPlaneColor = Color(white: 0.09)
+        static let floorPlaneBorderColor = Color.white.opacity(0.06)
+        static let floorPlanePadding: CGFloat = 16
+        static let floorPlaneCornerRadius: CGFloat = 12
 
         // Active path
         static let activePathColor = AppColors.accentGreen
-        static let coveredPathColor = Color.orange.opacity(0.5)
-        static let activePathGlowOpacity: CGFloat = 0.2
-        static let activePathWidth: CGFloat = 3.5
-        static let activePathGlowWidth: CGFloat = 10
+        static let coveredPathColor = Color.white.opacity(0.25)
+        static let activePathGlowOpacity: CGFloat = 0.15
+        static let activePathWidth: CGFloat = 4.0
+        static let activePathGlowWidth: CGFloat = 12
+        static let activePathDotSpacing: CGFloat = 3.0
 
-        // POI markers (base values)
-        static let poiRadiusBase: CGFloat = 10
-        static let poiDestinationRadiusBase: CGFloat = 14
-        static let poiGlowRadiusBase: CGFloat = 20
-        static let poiIconSizeBase: CGFloat = 12
-        static let poiBorderWidth: CGFloat = 2
+        // POI markers (base values) — larger and more prominent
+        static let poiRadiusBase: CGFloat = 12
+        static let poiDestinationRadiusBase: CGFloat = 16
+        static let poiGlowRadiusBase: CGFloat = 24
+        static let poiIconSizeBase: CGFloat = 13
+        static let poiBorderWidth: CGFloat = 2.5
+        static let poiShadowRadius: CGFloat = 6
 
-        // User marker (base values)
-        static let userOuterRadiusBase: CGFloat = 14
-        static let userInnerRadiusBase: CGFloat = 9
-        static let userArrowLengthBase: CGFloat = 20
-        static let userArrowBaseWidthBase: CGFloat = 9
-        static let userPulseRadiusBase: CGFloat = 22
+        // User marker (base values) — larger and cleaner
+        static let userOuterRadiusBase: CGFloat = 16
+        static let userInnerRadiusBase: CGFloat = 11
+        static let userArrowLengthBase: CGFloat = 22
+        static let userArrowBaseWidthBase: CGFloat = 10
+        static let userPulseRadiusBase: CGFloat = 26
     }
 
     // MARK: - Computed Properties
@@ -110,14 +114,16 @@ struct MapCanvasView: View {
 
                 // Draw layers from bottom to top
                 drawFloorPlane(context: context, transformer: transformer, size: size)
+
                 drawWaypointConnections(context: context, transformer: transformer)
                 drawActivePath(context: context, transformer: transformer)
                 drawWaypoints(context: context, transformer: transformer)
+
                 drawPOIs(context: context, transformer: transformer)
                 drawUserMarker(context: context, transformer: transformer)
             }
         }
-        .background(AppColors.primaryBackground)
+        .background(Color(hex: "0A0E14"))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
@@ -136,11 +142,10 @@ struct MapCanvasView: View {
         )
     }
 
-    /// Draw a transparent floor plane behind waypoints
+    /// Draw a polished floor plane behind waypoints with subtle layered styling
     private func drawFloorPlane(context: GraphicsContext, transformer: MapCoordinateTransformer, size: CGSize) {
         guard !waypoints.isEmpty else { return }
 
-        // Find convex hull or bounding box of waypoints with padding
         var minX: CGFloat = .greatestFiniteMagnitude
         var maxX: CGFloat = -.greatestFiniteMagnitude
         var minY: CGFloat = .greatestFiniteMagnitude
@@ -154,23 +159,28 @@ struct MapCanvasView: View {
             maxY = max(maxY, point.y)
         }
 
-        // Add padding
         let padding = DrawingConstants.floorPlanePadding
         minX -= padding
         maxX += padding
         minY -= padding
         maxY += padding
 
-        // Draw rounded rectangle floor
         let floorRect = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
-        let floorPath = Path(roundedRect: floorRect, cornerRadius: 8)
+        let cornerRadius = DrawingConstants.floorPlaneCornerRadius
+        let floorPath = Path(roundedRect: floorRect, cornerRadius: cornerRadius)
 
+        // Outer subtle shadow layer
+        let shadowRect = floorRect.insetBy(dx: -2, dy: -2)
+        let shadowPath = Path(roundedRect: shadowRect, cornerRadius: cornerRadius + 2)
+        context.fill(shadowPath, with: .color(Color.white.opacity(0.02)))
+
+        // Main floor fill
         context.fill(floorPath, with: .color(DrawingConstants.floorPlaneColor))
 
-        // Draw subtle border
+        // Subtle border
         context.stroke(
             floorPath,
-            with: .color(Color.white.opacity(0.08)),
+            with: .color(DrawingConstants.floorPlaneBorderColor),
             lineWidth: 1
         )
     }
@@ -210,7 +220,7 @@ struct MapCanvasView: View {
 
         let waypointDict = Dictionary(uniqueKeysWithValues: waypoints.map { ($0.id, $0) })
 
-        // Draw covered (completed) path first
+        // Draw covered (completed) path as dashed line
         if currentWaypointIndex > 0 {
             var coveredPath = Path()
             var isFirst = true
@@ -227,14 +237,15 @@ struct MapCanvasView: View {
                 }
             }
 
-            // Draw covered path with muted color
+            // Dashed covered path for clear visual distinction from active segment
             context.stroke(
                 coveredPath,
                 with: .color(DrawingConstants.coveredPathColor),
                 style: StrokeStyle(
-                    lineWidth: DrawingConstants.activePathWidth,
+                    lineWidth: DrawingConstants.activePathWidth * 0.7,
                     lineCap: .round,
-                    lineJoin: .round
+                    lineJoin: .round,
+                    dash: [6, 4]
                 )
             )
         }
@@ -324,10 +335,9 @@ struct MapCanvasView: View {
         }
     }
 
-    /// Draw POI markers with type-based styling and zoom-aware sizing
+    /// Draw POI markers with type-based styling, shadow, and zoom-aware sizing
     private func drawPOIs(context: GraphicsContext, transformer: MapCoordinateTransformer) {
-        // Scale POI sizes inversely with zoom to keep them readable
-        let scaleFactor = min(inverseZoom, 1.5)  // Cap the scaling
+        let scaleFactor = min(inverseZoom, 1.5)
 
         for poi in pois {
             let point = transformer.toScreenPoint(poi.position)
@@ -337,7 +347,17 @@ struct MapCanvasView: View {
             let baseRadius = isDestination ? DrawingConstants.poiDestinationRadiusBase : DrawingConstants.poiRadiusBase
             let radius = baseRadius * scaleFactor
 
-            // Draw outer glow for destination
+            // Shadow behind POI
+            let shadowRadius = radius + DrawingConstants.poiShadowRadius * scaleFactor
+            let shadowRect = CGRect(
+                x: point.x - shadowRadius,
+                y: point.y - shadowRadius + 1,
+                width: shadowRadius * 2,
+                height: shadowRadius * 2
+            )
+            context.fill(Path(ellipseIn: shadowRect), with: .color(Color.black.opacity(0.3)))
+
+            // Outer glow for destination
             if isDestination {
                 let glowRadius = DrawingConstants.poiGlowRadiusBase * scaleFactor
                 let glowRect = CGRect(
@@ -346,19 +366,20 @@ struct MapCanvasView: View {
                     width: glowRadius * 2,
                     height: glowRadius * 2
                 )
-                context.fill(Path(ellipseIn: glowRect), with: .color(color.opacity(0.3)))
+                context.fill(Path(ellipseIn: glowRect), with: .color(color.opacity(0.25)))
             }
 
-            // Draw POI border
+            // White border ring
+            let borderRadius = radius + DrawingConstants.poiBorderWidth
             let borderRect = CGRect(
-                x: point.x - radius - DrawingConstants.poiBorderWidth/2,
-                y: point.y - radius - DrawingConstants.poiBorderWidth/2,
-                width: (radius + DrawingConstants.poiBorderWidth/2) * 2,
-                height: (radius + DrawingConstants.poiBorderWidth/2) * 2
+                x: point.x - borderRadius,
+                y: point.y - borderRadius,
+                width: borderRadius * 2,
+                height: borderRadius * 2
             )
-            context.fill(Path(ellipseIn: borderRect), with: .color(color.opacity(0.8)))
+            context.fill(Path(ellipseIn: borderRect), with: .color(.white.opacity(0.9)))
 
-            // Draw POI circle background
+            // Main POI circle
             let rect = CGRect(
                 x: point.x - radius,
                 y: point.y - radius,
@@ -367,7 +388,7 @@ struct MapCanvasView: View {
             )
             context.fill(Path(ellipseIn: rect), with: .color(color))
 
-            // Draw POI icon
+            // POI icon
             let iconSize = DrawingConstants.poiIconSizeBase * scaleFactor
             let iconImage = context.resolve(Image(systemName: poi.iconName))
             let iconRect = CGRect(
@@ -380,20 +401,18 @@ struct MapCanvasView: View {
         }
     }
 
-    /// Draw user position marker with heading indicator
+    /// Draw user position marker with heading arrow on top
     private func drawUserMarker(context: GraphicsContext, transformer: MapCoordinateTransformer) {
         guard let position = userPosition else { return }
 
         let point = transformer.toScreenPoint(position)
-
-        // Scale marker sizes inversely with zoom
         let scaleFactor = min(inverseZoom, 1.5)
 
         let pulseRadius = DrawingConstants.userPulseRadiusBase * scaleFactor
         let outerRadius = DrawingConstants.userOuterRadiusBase * scaleFactor
         let innerRadius = DrawingConstants.userInnerRadiusBase * scaleFactor
 
-        // Draw outer pulse ring
+        // Soft pulse ring
         let pulseRect = CGRect(
             x: point.x - pulseRadius,
             y: point.y - pulseRadius,
@@ -402,16 +421,25 @@ struct MapCanvasView: View {
         )
         context.fill(Path(ellipseIn: pulseRect), with: .color(AppColors.accentBlue.opacity(0.12)))
 
-        // Draw outer circle
+        // Shadow
+        let shadowRect = CGRect(
+            x: point.x - outerRadius,
+            y: point.y - outerRadius + 1,
+            width: outerRadius * 2,
+            height: outerRadius * 2
+        )
+        context.fill(Path(ellipseIn: shadowRect), with: .color(Color.black.opacity(0.25)))
+
+        // White outer ring
         let outerRect = CGRect(
             x: point.x - outerRadius,
             y: point.y - outerRadius,
             width: outerRadius * 2,
             height: outerRadius * 2
         )
-        context.fill(Path(ellipseIn: outerRect), with: .color(AppColors.accentBlue.opacity(0.25)))
+        context.fill(Path(ellipseIn: outerRect), with: .color(.white))
 
-        // Draw inner circle
+        // Blue inner circle
         let innerRect = CGRect(
             x: point.x - innerRadius,
             y: point.y - innerRadius,
@@ -420,19 +448,19 @@ struct MapCanvasView: View {
         )
         context.fill(Path(ellipseIn: innerRect), with: .color(AppColors.accentBlue))
 
-        // Draw white border on inner circle
+        // White border on inner circle
         context.stroke(
             Path(ellipseIn: innerRect),
             with: .color(.white.opacity(0.8)),
             lineWidth: 2 * scaleFactor
         )
 
-        // Draw center dot
+        // Center dot
         let centerRadius: CGFloat = 3 * scaleFactor
         let centerRect = CGRect(x: point.x - centerRadius, y: point.y - centerRadius, width: centerRadius * 2, height: centerRadius * 2)
         context.fill(Path(ellipseIn: centerRect), with: .color(.white))
 
-        // Draw heading arrow if rotation is available
+        // Heading arrow ON TOP of the dot so it's clearly visible
         if let rotation = userRotation {
             let heading = transformer.headingAngle(from: rotation)
             drawHeadingArrow(context: context, at: point, angle: heading, scaleFactor: scaleFactor)
@@ -444,20 +472,17 @@ struct MapCanvasView: View {
         let arrowLength = DrawingConstants.userArrowLengthBase * scaleFactor
         let baseWidth = DrawingConstants.userArrowBaseWidthBase * scaleFactor
 
-        // Calculate arrow tip position
+        // Arrow tip
         let tipX = point.x + sin(CGFloat(angle.radians)) * arrowLength
         let tipY = point.y - cos(CGFloat(angle.radians)) * arrowLength
 
-        // Calculate arrow base positions
+        // Arrow base
         let baseOffset = baseWidth / 2
-
         let base1X = point.x + cos(CGFloat(angle.radians)) * baseOffset
         let base1Y = point.y + sin(CGFloat(angle.radians)) * baseOffset
-
         let base2X = point.x - cos(CGFloat(angle.radians)) * baseOffset
         let base2Y = point.y - sin(CGFloat(angle.radians)) * baseOffset
 
-        // Create arrow path
         var arrowPath = Path()
         arrowPath.move(to: CGPoint(x: tipX, y: tipY))
         arrowPath.addLine(to: CGPoint(x: base1X, y: base1Y))
@@ -466,7 +491,6 @@ struct MapCanvasView: View {
 
         context.fill(arrowPath, with: .color(AppColors.accentBlue))
 
-        // Draw arrow outline
         context.stroke(
             arrowPath,
             with: .color(.white.opacity(0.7)),
@@ -491,4 +515,44 @@ struct MapCanvasView: View {
             return AppColors.textSecondary
         }
     }
+}
+
+// MARK: - Preview
+
+#Preview {
+    MapCanvasView(
+        bounds: MapBounds(
+            center: NavPosition(x: 0, y: 0, z: 0),
+            size: NavPosition(x: 10, y: 0, z: 10),
+            min: NavPosition(x: -5, y: 0, z: -5),
+            max: NavPosition(x: 5, y: 0, z: 5)
+        ),
+        waypoints: [
+            WaypointData(id: 1, position: NavPosition(x: -3, y: 0, z: -3), connectedWaypoints: [2]),
+            WaypointData(id: 2, position: NavPosition(x: 0, y: 0, z: 0), connectedWaypoints: [1, 3]),
+            WaypointData(id: 3, position: NavPosition(x: 3, y: 0, z: 3), connectedWaypoints: [2])
+        ],
+        pois: [
+            NavigationPOI(
+                id: 1,
+                name: "Room A",
+                description: "Test room",
+                type: "room",
+                position: NavPosition(x: 3, y: 0, z: 3),
+                worldPosition: NavPosition(x: 3, y: 0, z: 3),
+                nearestWaypointId: 3,
+                arrivalRadius: 1.5
+            )
+        ],
+        userPosition: NavPosition(x: -2, y: 0, z: -2),
+        userRotation: Rotation(x: 0, y: 0.7071, z: 0, w: 0.7071),
+        activePath: [1, 2, 3],
+        destinationPOI: nil,
+        currentWaypointIndex: 1,
+        zoomScale: 1.0,
+        isNavigating: false
+    )
+    .frame(height: 300)
+    .padding()
+    .background(Color.black)
 }

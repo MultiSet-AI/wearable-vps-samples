@@ -236,7 +236,8 @@ struct PhotoPreviewView: View {
         .background(Color.white.opacity(0.1))
 
       // Map info
-      if !LocalizationConfig.mapCode.isEmpty {
+      let config = LocalizationConfig.shared
+      if !config.mapCode.isEmpty {
         HStack {
           VStack(alignment: .leading, spacing: 4) {
             Text("MAP CODE")
@@ -244,7 +245,7 @@ struct PhotoPreviewView: View {
               .foregroundColor(AppColors.textSecondary)
               .tracking(1)
 
-            Text(LocalizationConfig.mapCode)
+            Text(config.mapCode)
               .font(.system(size: 15, weight: .medium, design: .monospaced))
               .foregroundColor(AppColors.textPrimary)
           }

@@ -87,7 +87,7 @@ class StreamSessionViewModel: ObservableObject {
     self.deviceSelector = AutoDeviceSelector(wearables: wearables)
     let config = StreamSessionConfig(
       videoCodec: VideoCodec.raw,
-      resolution: StreamingResolution.low,
+      resolution: StreamingResolution.medium,
       frameRate: 24)
     streamSession = StreamSession(streamSessionConfig: config, deviceSelector: deviceSelector)
 
@@ -144,9 +144,10 @@ class StreamSessionViewModel: ObservableObject {
         if let uiImage = UIImage(data: photoData.data) {
           self.capturedPhoto = uiImage
 
-          // If we're localizing, send to API
+          // If we're localizing, send raw JPEG data directly to API
+          // to avoid re-encoding (UIImage → JPEG) overhead
           if self.isLocalizing {
-            await self.performLocalization(image: uiImage)
+            await self.performLocalization(jpegData: photoData.data, image: uiImage)
           } else {
             self.showPhotoPreview = true
           }
@@ -188,6 +189,11 @@ class StreamSessionViewModel: ObservableObject {
     stopTimer()
 
     await streamSession.start()
+
+    // Pre-warm auth token in background so first localization doesn't pay the fetch penalty
+    Task {
+      _ = try? await AuthManager.shared.getToken()
+    }
   }
 
   private func showError(_ message: String) {
@@ -255,11 +261,19 @@ class StreamSessionViewModel: ObservableObject {
     streamSession.capturePhoto(format: .jpeg)
   }
 
-  private func performLocalization(image: UIImage) async {
+  private func performLocalization(jpegData: Data, image: UIImage) async {
     localizationStatus = .localizing
 
+    let width = Int(image.size.width)
+    let height = Int(image.size.height)
+
     do {
-      let result = try await localizationService.sendLocalizationRequest(image: image)
+      // Send raw JPEG data directly — avoids decoding then re-encoding the image
+      let result = try await localizationService.sendLocalizationRequest(
+        imageData: jpegData,
+        imageWidth: width,
+        imageHeight: height
+      )
 
       // Check confidence threshold - if below minimum, retry localization
       if result.poseFound {
@@ -381,8 +395,8 @@ class StreamSessionViewModel: ObservableObject {
   private func scheduleNextLocalization() {
     periodicLocalizationTask?.cancel()
     periodicLocalizationTask = Task { @MainActor [weak self] in
-      // Wait 200ms before next localization
-      try? await Task.sleep(nanoseconds: 200_000_000)
+      // Short delay before next localization (video frame approach is fast, no Bluetooth wait)
+      try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
 
       guard let self, !Task.isCancelled, self.isNavigationActive else { return }
 
@@ -405,16 +419,28 @@ class StreamSessionViewModel: ObservableObject {
     periodicLocalizationTask = nil
   }
 
-  /// Trigger localization during navigation (silent, no audio feedback)
+  /// Trigger localization during navigation using the current video frame directly.
+  /// This skips the Bluetooth photo capture round-trip (1-3s) by converting the
+  /// already-streaming video frame to JPEG on-device, dramatically reducing latency.
   private func localizeForNavigation() {
     guard streamingStatus == .streaming && !isLocalizing else { return }
 
-    isLocalizing = true
-    localizationStatus = .capturing
-    // Don't play any audio during background navigation localization
+    // Use the current video frame instead of capturePhoto() to avoid Bluetooth round-trip
+    guard let frame = currentVideoFrame,
+          let jpegData = frame.jpegData(compressionQuality: 0.85) else {
+      // Fallback to photo capture if no video frame available
+      isLocalizing = true
+      localizationStatus = .capturing
+      streamSession.capturePhoto(format: .jpeg)
+      return
+    }
 
-    // Capture photo - the listener will handle sending to API
-    streamSession.capturePhoto(format: .jpeg)
+    isLocalizing = true
+    localizationStatus = .localizing
+
+    Task { @MainActor in
+      await performLocalization(jpegData: jpegData, image: frame)
+    }
   }
 
   private func startTimer() {
@@ -460,10 +486,12 @@ class StreamSessionViewModel: ObservableObject {
       return "The operation timed out. Please try again."
     case .videoStreamingError:
       return "Video streaming failed. Please try again."
-    case .audioStreamingError:
-      return "Audio streaming failed. Please try again."
     case .permissionDenied:
       return "Camera permission denied. Please grant permission in Settings."
+    case .hingesClosed:
+      return "Glasses hinges are closed. Please open them to continue."
+    case .thermalCritical:
+      return "Device temperature is too high. Please wait for it to cool down."
     @unknown default:
       return "An unknown streaming error occurred."
     }

@@ -56,11 +56,17 @@ class NavigationMapViewModel: ObservableObject {
     /// Whether map rotates to match user heading
     @Published var rotateWithHeading: Bool = false
 
+    /// Whether recenter mode is active (auto-center on user + rotate with heading, like Google Maps navigation)
+    @Published var isRecenterActive: Bool = false
+
     /// Pan offset for the map
     @Published var panOffset: CGSize = .zero
 
     /// Whether full screen map is shown
     @Published var showFullScreenMap: Bool = false
+
+    /// Canvas size for computing center offsets (set by InteractiveMapView)
+    var canvasSize: CGSize = .zero
 
     // MARK: - Zoom Constraints
 
@@ -100,30 +106,64 @@ class NavigationMapViewModel: ObservableObject {
 
     /// Reset zoom and pan to default
     func resetZoomAndPan() {
+        isRecenterActive = false
+        rotateWithHeading = false
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             zoomScale = 1.0
             panOffset = .zero
+            mapRotation = .zero
         }
     }
 
     /// Fit map to screen and center (no animation, for initial display)
     func fitMapToScreen() {
+        isRecenterActive = false
+        rotateWithHeading = false
         zoomScale = 1.0
         panOffset = .zero
         mapRotation = .zero
     }
 
-    /// Center map on user position
+    /// Center map on user position by computing the actual pan offset
     func centerOnUser() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            panOffset = .zero
+        guard let userPosition = userPosition, let bounds = bounds, canvasSize != .zero else {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                panOffset = .zero
+            }
+            return
         }
+
+        let transformer = MapCoordinateTransformer(bounds: bounds, canvasSize: canvasSize, padding: 24)
+        let userScreenPos = transformer.toScreenPoint(userPosition)
+        let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+
+        // Compute offset so user lands at canvas center after scale transform
+        // Transform order: scaleEffect → offset → rotationEffect
+        // For user to be at center after all transforms: offset = -(userPos - center) * zoom
+        let offsetX = -(userScreenPos.x - center.x) * zoomScale
+        let offsetY = -(userScreenPos.y - center.y) * zoomScale
+
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            panOffset = CGSize(width: offsetX, height: offsetY)
+        }
+    }
+
+    /// Activate recenter mode (auto-center on user position)
+    func activateRecenter() {
+        isRecenterActive = true
+        centerOnUser()
+    }
+
+    /// Deactivate recenter mode (called when user manually pans)
+    func deactivateRecenter() {
+        isRecenterActive = false
     }
 
     /// Toggle map rotation mode
     func toggleRotationMode() {
         rotateWithHeading.toggle()
         if !rotateWithHeading {
+            isRecenterActive = false
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 mapRotation = .zero
             }
@@ -172,8 +212,10 @@ class NavigationMapViewModel: ObservableObject {
         }
         userRotation = result.poseRotation
 
-        // Update map rotation if enabled
-        updateMapRotation()
+        // Center on user if recenter is active (no rotation — map stays static)
+        if isRecenterActive {
+            centerOnUser()
+        }
     }
 
     // MARK: - POI Selection
@@ -222,8 +264,10 @@ class NavigationMapViewModel: ObservableObject {
                 self.isNavigating = isNavigating
 
                 if isNavigating && !wasNavigating {
-                    // Navigation just started - show full screen map and fit to screen
-                    self.fitMapToScreen()
+                    // Navigation just started - show full screen map and center on user
+                    self.zoomScale = 1.0
+                    self.panOffset = .zero
+                    self.mapRotation = .zero
                     self.showFullScreenMap = true
                 } else if !isNavigating {
                     self.activePath = nil

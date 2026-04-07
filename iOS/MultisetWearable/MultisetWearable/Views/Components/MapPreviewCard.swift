@@ -283,3 +283,19 @@ struct MapPreviewCard: View {
         }
     }
 }
+
+// MARK: - Preview
+
+#Preview {
+    ZStack {
+        AppColors.primaryBackground.ignoresSafeArea()
+
+        VStack {
+            MapPreviewCard()
+                .padding(.horizontal, 16)
+
+            Spacer()
+        }
+        .padding(.top, 20)
+    }
+}

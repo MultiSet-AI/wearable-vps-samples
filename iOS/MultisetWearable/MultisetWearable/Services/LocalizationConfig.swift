@@ -8,8 +8,6 @@ Redistribution in source or binary forms must retain this notice.
 import Foundation
 
 /// Configuration for the Multiset Localization SDK
-/// **IMPORTANT**: Fill in your credentials below before building the app.
-/// Get your credentials from: https://developer.multiset.ai/credentials
 final class LocalizationConfig {
 
     // MARK: - Singleton
@@ -19,34 +17,77 @@ final class LocalizationConfig {
     static let authURL = "https://api.multiset.ai/v1/m2m/token"
     static let queryURL = "https://api.multiset.ai/v1/vps/map/query-form"
 
-    // ╔════════════════════════════════════════════════════════════════════════════╗
-    // ║                    CONFIGURE YOUR CREDENTIALS HERE                          ║
-    // ║  Fill in these values before building the app.                              ║
-    // ║  Get credentials from: https://developer.multiset.ai/credentials            ║
-    // ╚════════════════════════════════════════════════════════════════════════════╝
-
-    /// Your MultiSet Client ID
-    static let clientId = ""
-
-    /// Your MultiSet Client Secret
-    static let clientSecret = ""
-
-    /// Your Map Code for single-map localization (e.g., "MAP_XXXXXXXXXX")
-    /// Leave empty if using mapSetCode instead
-    static let mapCode = ""
-
-    /// Your Map Set Code for multi-map localization (e.g., "MAPSET_XXXXXXXXXX")
-    /// Leave empty if using mapCode instead
-    static let mapSetCode = ""
-
-    // ╔════════════════════════════════════════════════════════════════════════════╗
-    // ║                      END OF CONFIGURATION SECTION                           ║
-    // ╚════════════════════════════════════════════════════════════════════════════╝
-
-    // MARK: - UserDefaults Keys (for camera intrinsics only)
+    // MARK: - UserDefaults Keys
     private enum Keys {
+        static let mapCode = "multiset_map_code"
+        static let mapSetCode = "multiset_map_set_code"
         static let intrinsicsPreset = "multiset_intrinsics_preset"
         static let customFocalLength = "multiset_custom_focal_length"
+    }
+
+    // ╔════════════════════════════════════════════════════════════════════════════╗
+    // ║                    CONFIGURE YOUR CREDENTIALS HERE                         ║
+    // ║  Fill in these values before building the app here or in Info.plist file   ║
+    // ║  Get credentials from: https://developer.multiset.ai/credentials           ║
+    // ╚════════════════════════════════════════════════════════════════════════════╝
+
+    // MARK: - Hardcoded Credential Defaults
+    // Fallback values used when Info.plist entries are absent or unresolved.
+    // To use Info.plist, add a MultisetConfig dict with ClientID and ClientSecret keys
+    // backed by xcconfig build variables (e.g. MULTISET_CLIENT_ID, MULTISET_CLIENT_SECRET).
+    private static let defaultClientID = ""
+    private static let defaultClientSecret = ""
+
+  
+    // MARK: - Enter Map/MapSet Code
+    // These can also be set at runtime via LocalizationConfig.shared.mapCode = "..."
+    // or through the in-app Settings screen — they are persisted in UserDefaults,
+  
+    private static let mapCode = ""
+    private static let mapSetCode = ""
+
+    // MARK: - Credentials (resolved from Info.plist first, then falls back to hardcoded defaults above)
+    var clientID: String {
+        if let config = Bundle.main.object(forInfoDictionaryKey: "MultisetConfig") as? [String: Any],
+           let clientID = config["ClientID"] as? String,
+           !clientID.isEmpty,
+           !clientID.hasPrefix("$(") {
+            return clientID
+        }
+        return Self.defaultClientID
+    }
+
+    var clientSecret: String {
+        if let config = Bundle.main.object(forInfoDictionaryKey: "MultisetConfig") as? [String: Any],
+           let clientSecret = config["ClientSecret"] as? String,
+           !clientSecret.isEmpty,
+           !clientSecret.hasPrefix("$(") {
+            return clientSecret
+        }
+        return Self.defaultClientSecret
+    }
+
+    // MARK: - Map Configuration (stored in UserDefaults)
+    var mapCode: String {
+        get {
+            let stored = UserDefaults.standard.string(forKey: Keys.mapCode)
+            if let stored = stored, !stored.isEmpty {
+                return stored
+            }
+            return Self.mapCode
+        }
+        set { UserDefaults.standard.set(newValue, forKey: Keys.mapCode) }
+    }
+
+    var mapSetCode: String {
+        get {
+            let stored = UserDefaults.standard.string(forKey: Keys.mapSetCode)
+            if let stored = stored, !stored.isEmpty {
+                return stored
+            }
+            return Self.mapSetCode
+        }
+        set { UserDefaults.standard.set(newValue, forKey: Keys.mapSetCode) }
     }
 
     // MARK: - Camera Intrinsics
@@ -99,73 +140,14 @@ final class LocalizationConfig {
 
     // MARK: - Validation
     var isConfigured: Bool {
-        !Self.clientId.isEmpty && !Self.clientSecret.isEmpty && (!Self.mapCode.isEmpty || !Self.mapSetCode.isEmpty)
+        !clientID.isEmpty && !clientSecret.isEmpty && (!mapCode.isEmpty || !mapSetCode.isEmpty)
     }
 
     var hasCredentials: Bool {
-        !Self.clientId.isEmpty && !Self.clientSecret.isEmpty
-    }
-
-    var hasMapConfiguration: Bool {
-        !Self.mapCode.isEmpty || !Self.mapSetCode.isEmpty
-    }
-
-    /// Returns list of missing configuration items
-    var missingConfiguration: [ConfigurationError] {
-        var errors: [ConfigurationError] = []
-        if Self.clientId.isEmpty {
-            errors.append(.missingClientID)
-        }
-        if Self.clientSecret.isEmpty {
-            errors.append(.missingClientSecret)
-        }
-        if Self.mapCode.isEmpty && Self.mapSetCode.isEmpty {
-            errors.append(.missingMapCode)
-        }
-        return errors
+        !clientID.isEmpty && !clientSecret.isEmpty
     }
 
     private init() {}
-}
-
-// MARK: - Configuration Errors
-enum ConfigurationError: String, CaseIterable, Identifiable {
-    case missingClientID
-    case missingClientSecret
-    case missingMapCode
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .missingClientID:
-            return "Missing Client ID"
-        case .missingClientSecret:
-            return "Missing Client Secret"
-        case .missingMapCode:
-            return "Missing Map Code"
-        }
-    }
-
-    var message: String {
-        switch self {
-        case .missingClientID:
-            return "Add your Client ID in LocalizationConfig.swift"
-        case .missingClientSecret:
-            return "Add your Client Secret in LocalizationConfig.swift"
-        case .missingMapCode:
-            return "Add a Map Code or Map Set Code in LocalizationConfig.swift"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .missingClientID, .missingClientSecret:
-            return "key.fill"
-        case .missingMapCode:
-            return "map.fill"
-        }
-    }
 }
 
 // MARK: - Camera Intrinsics Model
@@ -192,6 +174,18 @@ enum RayBanMetaIntrinsics {
     // Calibrated focal lengths
     static let calibratedFx: Float = 844.5  // 1276.095 * 0.6618
     static let calibratedFy: Float = 845.8  // 1278.037 * 0.6618
+
+    // Medium streaming resolution (504x896) intrinsics
+    // The SDK crops the 3:4 sensor to 9:16 (center-crop on width) then scales.
+    // Effective source crop at 1632 wide: height=2176, 9:16 width = 2176*9/16 = 1224, centered at cx=816
+    // Scale from 1224x2176 → 504x896: scale = 504/1224 = 0.4118
+    // fx/fy scale uniformly, px is recomputed relative to the crop, py scales with height.
+    static let mediumWidth = 504
+    static let mediumHeight = 896
+    static let mediumFx: Float = 525.5   // 1276.095 * (504/1224)
+    static let mediumFy: Float = 526.3   // 1278.037 * (504/1224)
+    static let mediumPx: Float = 252.0   // center of 504
+    static let mediumPy: Float = 448.0   // center of 896
 }
 
 // MARK: - Intrinsics Presets

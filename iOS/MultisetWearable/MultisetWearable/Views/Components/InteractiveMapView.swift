@@ -49,9 +49,8 @@ struct InteractiveMapView: View {
                 )
                 .scaleEffect(viewModel.zoomScale)
                 .offset(viewModel.panOffset)
-                .rotationEffect(viewModel.mapRotation)
 
-                // POI label overlays (if enabled)
+                // POI label overlays (only when zoomed in enough to avoid clutter)
                 if showLabels && viewModel.zoomScale > 1.5 {
                     poiLabelsOverlay(in: geometry.size)
                 }
@@ -61,15 +60,23 @@ struct InteractiveMapView: View {
             .contentShape(Rectangle())
             .onAppear {
                 currentCanvasSize = geometry.size
+                viewModel.canvasSize = geometry.size
                 dragStartOffset = viewModel.panOffset
             }
             .onChange(of: geometry.size) { _, newSize in
                 currentCanvasSize = newSize
+                viewModel.canvasSize = newSize
             }
             .onChange(of: viewModel.zoomScale) { _, _ in
                 // Sync drag offset when zoom changes (e.g., from reset)
                 if viewModel.panOffset == .zero {
                     dragStartOffset = .zero
+                }
+            }
+            .onChange(of: viewModel.panOffset) { _, newOffset in
+                // Sync drag start offset when panOffset changes programmatically (e.g., recenter)
+                if viewModel.isRecenterActive {
+                    dragStartOffset = newOffset
                 }
             }
             .gesture(interactionEnabled ? combinedGesture : nil)
@@ -95,9 +102,15 @@ struct InteractiveMapView: View {
     private var magnificationGesture: some Gesture {
         MagnificationGesture()
             .onChanged { scale in
-                let delta = scale / lastScale
+                let rawDelta = scale / lastScale
                 lastScale = scale
-                viewModel.applyZoom(delta)
+                // Dampen the zoom delta to reduce sensitivity:
+                // Map raw delta (e.g., 0.8..1.2) closer to 1.0 by blending with 1.0
+                let dampening: CGFloat = 0.4 // 0 = no zoom, 1 = full sensitivity
+                let dampenedDelta = 1.0 + (rawDelta - 1.0) * dampening
+                withAnimation(.interactiveSpring(response: 0.15, dampingFraction: 0.9)) {
+                    viewModel.applyZoom(dampenedDelta)
+                }
             }
             .onEnded { _ in
                 lastScale = 1.0
@@ -107,6 +120,11 @@ struct InteractiveMapView: View {
     private var dragGesture: some Gesture {
         DragGesture()
             .onChanged { value in
+                // Manual pan breaks recenter mode (user takes control)
+                if viewModel.isRecenterActive {
+                    viewModel.deactivateRecenter()
+                }
+
                 // Use absolute translation from drag start, not incremental
                 viewModel.panOffset = CGSize(
                     width: dragStartOffset.width + value.translation.width,
@@ -143,17 +161,6 @@ struct InteractiveMapView: View {
             x: center.x + (adjusted.x - center.x) / viewModel.zoomScale,
             y: center.y + (adjusted.y - center.y) / viewModel.zoomScale
         )
-
-        // Reverse rotation
-        if viewModel.mapRotation.radians != 0 {
-            let angle = -viewModel.mapRotation.radians
-            let dx = adjusted.x - center.x
-            let dy = adjusted.y - center.y
-            adjusted = CGPoint(
-                x: center.x + dx * cos(angle) - dy * sin(angle),
-                y: center.y + dx * sin(angle) + dy * cos(angle)
-            )
-        }
 
         return adjusted
     }
@@ -199,18 +206,7 @@ struct InteractiveMapView: View {
         let pannedX = scaledX + viewModel.panOffset.width
         let pannedY = scaledY + viewModel.panOffset.height
 
-        // 3. Apply rotation (if any)
-        guard viewModel.mapRotation.radians != 0 else {
-            return CGPoint(x: pannedX, y: pannedY)
-        }
-
-        let angle = viewModel.mapRotation.radians
-        let dx = pannedX - center.x
-        let dy = pannedY - center.y
-        return CGPoint(
-            x: center.x + CGFloat(cos(angle)) * dx - CGFloat(sin(angle)) * dy,
-            y: center.y + CGFloat(sin(angle)) * dx + CGFloat(cos(angle)) * dy
-        )
+        return CGPoint(x: pannedX, y: pannedY)
     }
 }
 
@@ -244,16 +240,15 @@ struct MapControlButtons: View {
             }
 
             // Center on user
-            controlButton(icon: "location.fill") {
-                viewModel.centerOnUser()
-            }
-
-            // Toggle rotation mode
             controlButton(
-                icon: viewModel.rotateWithHeading ? "location.north.line.fill" : "location.north.line",
-                isActive: viewModel.rotateWithHeading
+                icon: "location.fill",
+                isActive: viewModel.isRecenterActive
             ) {
-                viewModel.toggleRotationMode()
+                if viewModel.isRecenterActive {
+                    viewModel.deactivateRecenter()
+                } else {
+                    viewModel.activateRecenter()
+                }
             }
 
             // Reset view
@@ -273,6 +268,20 @@ struct MapControlButtons: View {
                 .background(AppColors.cardBackground.opacity(0.9))
                 .clipShape(Circle())
                 .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+        }
+    }
+}
+
+// MARK: - Preview
+
+#Preview {
+    ZStack {
+        Color.black.ignoresSafeArea()
+
+        VStack {
+            Text("Interactive Map Preview")
+                .foregroundColor(.white)
+            // Note: Preview requires mock ViewModel
         }
     }
 }

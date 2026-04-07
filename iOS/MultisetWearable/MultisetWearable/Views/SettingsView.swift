@@ -7,79 +7,82 @@ Redistribution in source or binary forms must retain this notice.
 
 import SwiftUI
 
-/// Settings view showing configuration status
-/// Credentials and map codes are configured in LocalizationConfig.swift before building
+/// Settings view for configuring localization parameters
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
+    @State private var mapCode: String
+    @State private var mapSetCode: String
+
     private let config = LocalizationConfig.shared
+
+    init() {
+        let config = LocalizationConfig.shared
+        _mapCode = State(initialValue: config.mapCode)
+        _mapSetCode = State(initialValue: config.mapSetCode)
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                // Configuration Status Section
+                // Credentials Status Section
                 Section {
                     HStack {
-                        Text("Client ID")
+                        Text("API Status")
                         Spacer()
-                        if !LocalizationConfig.clientId.isEmpty {
-                            Image(systemName: "checkmark.circle.fill")
+                        if config.hasCredentials {
+                            Label("Configured", systemImage: "checkmark.circle.fill")
                                 .foregroundColor(.green)
                         } else {
-                            Text("Not configured")
+                            Label("Not Configured", systemImage: "exclamationmark.triangle.fill")
                                 .foregroundColor(.orange)
                         }
                     }
 
-                    HStack {
-                        Text("Client Secret")
-                        Spacer()
-                        if !LocalizationConfig.clientSecret.isEmpty {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                        } else {
-                            Text("Not configured")
-                                .foregroundColor(.orange)
-                        }
-                    }
-
-                    HStack {
-                        Text("Map Code")
-                        Spacer()
-                        if !LocalizationConfig.mapCode.isEmpty {
-                            Text(LocalizationConfig.mapCode)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        } else if !LocalizationConfig.mapSetCode.isEmpty {
-                            Text("Using Map Set")
-                                .foregroundColor(.secondary)
-                        } else {
-                            Text("Not configured")
-                                .foregroundColor(.orange)
-                        }
-                    }
-
-                    if !LocalizationConfig.mapSetCode.isEmpty {
-                        HStack {
-                            Text("Map Set Code")
-                            Spacer()
-                            Text(LocalizationConfig.mapSetCode)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        }
+                    if !config.hasCredentials {
+                        Text("Add MULTISET_CLIENT_ID and MULTISET_CLIENT_SECRET to your build settings.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 } header: {
-                    Text("API Configuration")
-                } footer: {
-                    Text("Configure credentials in LocalizationConfig.swift before building the app.")
+                    Text("API Credentials")
                 }
 
-                // Overall Status
+                // Map Configuration Section
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Map Code")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextField("Enter map code", text: $mapCode)
+                            .textFieldStyle(.roundedBorder)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Map Set Code")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextField("Enter map set code", text: $mapSetCode)
+                            .textFieldStyle(.roundedBorder)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                    }
+
+                    Text("Enter either a map code for single map localization, or a map set code for multi-map localization.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } header: {
+                    Text("Map Configuration")
+                }
+
+                // Configuration Status
                 Section {
                     HStack {
                         Text("Ready to Localize")
                         Spacer()
-                        if config.isConfigured {
+                        if isConfigurationValid {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.green)
                         } else {
@@ -88,10 +91,15 @@ struct SettingsView: View {
                         }
                     }
 
-                    if !config.isConfigured {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(config.missingConfiguration) { error in
-                                Label(error.message, systemImage: "exclamationmark.circle")
+                    if !isConfigurationValid {
+                        VStack(alignment: .leading, spacing: 4) {
+                            if !config.hasCredentials {
+                                Label("Missing API credentials", systemImage: "exclamationmark.circle")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                            if mapCode.isEmpty && mapSetCode.isEmpty {
+                                Label("Missing map code", systemImage: "exclamationmark.circle")
                                     .font(.caption)
                                     .foregroundColor(.orange)
                             }
@@ -100,32 +108,32 @@ struct SettingsView: View {
                 } header: {
                     Text("Status")
                 }
-
-                // Help Section
-                Section {
-                    Link(destination: URL(string: "https://developer.multiset.ai/credentials")!) {
-                        HStack {
-                            Image(systemName: "link")
-                            Text("Get credentials from MultiSet Developer Portal")
-                            Spacer()
-                            Image(systemName: "arrow.up.right.square")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                } header: {
-                    Text("Help")
-                }
             }
-            .navigationTitle("Configuration Status")
+            .navigationTitle("Localization Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button("Save") {
+                        saveSettings()
                         dismiss()
                     }
                 }
             }
         }
+    }
+
+    private var isConfigurationValid: Bool {
+        config.hasCredentials && (!mapCode.isEmpty || !mapSetCode.isEmpty)
+    }
+
+    private func saveSettings() {
+        config.mapCode = mapCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        config.mapSetCode = mapSetCode.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

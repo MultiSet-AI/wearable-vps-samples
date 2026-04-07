@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		529E041F2F83C011000A4DAB /* MAP_QTTSRGRYP7HR_navigation_data.json in Resources */ = {isa = PBXBuildFile; fileRef = 529E041E2F83C011000A4DAB /* MAP_QTTSRGRYP7HR_navigation_data.json */; };
 		52DA84522F3AF07B008F37EC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 52DA84512F3AF07B008F37EC /* Assets.xcassets */; };
 		52DA84632F3AF0A6008F37EC /* slight_right.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 52DA845C2F3AF0A6008F37EC /* slight_right.mp3 */; };
 		52DA84642F3AF0A6008F37EC /* move_forward.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 52DA84582F3AF0A6008F37EC /* move_forward.mp3 */; };
@@ -18,7 +19,6 @@
 		52DA846A2F3AF0A6008F37EC /* recalculating.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 52DA845A2F3AF0A6008F37EC /* recalculating.mp3 */; };
 		52DA846B2F3AF0A6008F37EC /* turn_left.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 52DA845D2F3AF0A6008F37EC /* turn_left.mp3 */; };
 		52DA846C2F3AF0A6008F37EC /* localization_successful.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 52DA84562F3AF0A6008F37EC /* localization_successful.mp3 */; };
-		52DA846D2F3AF0A6008F37EC /* MAP_QTTSRGRYP7HR_navigation_data.json in Resources */ = {isa = PBXBuildFile; fileRef = 52DA84602F3AF0A6008F37EC /* MAP_QTTSRGRYP7HR_navigation_data.json */; };
 		52DA846E2F3AF0A6008F37EC /* destination_reached.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 52DA84542F3AF0A6008F37EC /* destination_reached.mp3 */; };
 		52DA846F2F3AF0A6008F37EC /* navigation_started.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 52DA84592F3AF0A6008F37EC /* navigation_started.mp3 */; };
 		52DA84B52F3AF741008F37EC /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA848E2F3AF741008F37EC /* AuthManager.swift */; };
@@ -80,6 +80,7 @@
 
 /* Begin PBXFileReference section */
 		3A3A3A3A3A3A3A3A3A3A3A3A /* MultisetWearable.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MultisetWearable.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		529E041E2F83C011000A4DAB /* MAP_QTTSRGRYP7HR_navigation_data.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MAP_QTTSRGRYP7HR_navigation_data.json; sourceTree = "<group>"; };
 		52DA84512F3AF07B008F37EC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		52DA84532F3AF0A6008F37EC /* turn_around.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = turn_around.mp3; sourceTree = "<group>"; };
 		52DA84542F3AF0A6008F37EC /* destination_reached.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = destination_reached.mp3; sourceTree = "<group>"; };
@@ -93,7 +94,6 @@
 		52DA845C2F3AF0A6008F37EC /* slight_right.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = slight_right.mp3; sourceTree = "<group>"; };
 		52DA845D2F3AF0A6008F37EC /* turn_left.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = turn_left.mp3; sourceTree = "<group>"; };
 		52DA845E2F3AF0A6008F37EC /* turn_right.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = turn_right.mp3; sourceTree = "<group>"; };
-		52DA84602F3AF0A6008F37EC /* MAP_QTTSRGRYP7HR_navigation_data.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MAP_QTTSRGRYP7HR_navigation_data.json; sourceTree = "<group>"; };
 		52DA84882F3AF741008F37EC /* AppFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeature.swift; sourceTree = "<group>"; };
 		52DA84892F3AF741008F37EC /* LocalizationResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationResponse.swift; sourceTree = "<group>"; };
 		52DA848A2F3AF741008F37EC /* NavigationInstruction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationInstruction.swift; sourceTree = "<group>"; };
@@ -173,7 +173,7 @@
 		52DA84612F3AF0A6008F37EC /* NavigationData */ = {
 			isa = PBXGroup;
 			children = (
-				52DA84602F3AF0A6008F37EC /* MAP_QTTSRGRYP7HR_navigation_data.json */,
+				529E041E2F83C011000A4DAB /* MAP_QTTSRGRYP7HR_navigation_data.json */,
 			);
 			path = NavigationData;
 			sourceTree = "<group>";
@@ -378,10 +378,10 @@
 				52DA84672F3AF0A6008F37EC /* localization_failed.mp3 in Resources */,
 				52DA84682F3AF0A6008F37EC /* slight_left.mp3 in Resources */,
 				52DA84692F3AF0A6008F37EC /* turn_right.mp3 in Resources */,
+				529E041F2F83C011000A4DAB /* MAP_QTTSRGRYP7HR_navigation_data.json in Resources */,
 				52DA846A2F3AF0A6008F37EC /* recalculating.mp3 in Resources */,
 				52DA846B2F3AF0A6008F37EC /* turn_left.mp3 in Resources */,
 				52DA846C2F3AF0A6008F37EC /* localization_successful.mp3 in Resources */,
-				52DA846D2F3AF0A6008F37EC /* MAP_QTTSRGRYP7HR_navigation_data.json in Resources */,
 				52DA846E2F3AF0A6008F37EC /* destination_reached.mp3 in Resources */,
 				52DA846F2F3AF0A6008F37EC /* navigation_started.mp3 in Resources */,
 				52DA84522F3AF07B008F37EC /* Assets.xcassets in Resources */,
@@ -654,8 +654,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/facebook/meta-wearables-dat-ios";
 			requirement = {
-				kind = exactVersion;
-				version = 0.4.0;
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.4.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

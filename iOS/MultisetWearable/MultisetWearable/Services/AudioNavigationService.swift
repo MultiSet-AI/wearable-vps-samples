@@ -99,6 +99,12 @@ final class AudioNavigationService: ObservableObject {
     /// Number of heading samples to keep for smoothing
     private let headingHistorySize: Int = 5
 
+    /// Number of waypoints to look ahead for direction estimation
+    private let lookAheadWaypointCount: Int = 4
+
+    /// Distance threshold (meters) within which upcoming waypoints are considered for look-ahead
+    private let lookAheadMaxDistance: Float = 8.0
+
     /// Time after which movement heading is considered stale (seconds)
     private let movementHeadingStalenessTimeout: TimeInterval = 3.0
 
@@ -326,7 +332,7 @@ final class AudioNavigationService: ObservableObject {
 
         let distanceToPOI = userPosition.distance2D(to: destination.position)
 
-        if distanceToPOI <= destination.arrivalRadius {
+        if distanceToPOI <= destination.arrivalRadius { // default value is 1.25
             // Arrived!
             isNavigating = false
             currentInstruction = .destinationReached
@@ -438,7 +444,10 @@ final class AudioNavigationService: ObservableObject {
         }
     }
 
-    /// Calculate and announce navigation instruction
+    /// Calculate and announce navigation instruction using look-ahead for better direction estimation.
+    /// Instead of targeting only the immediate next waypoint, looks ahead at multiple waypoints
+    /// to determine the overall travel direction. This prevents false left/right instructions
+    /// when navigating grid-arranged waypoints (parallel line transitions).
     /// - Parameter predictedPosition: Optional predicted position (uses last known if nil)
     private func giveNavigationInstruction(using predictedPosition: NavPosition? = nil) {
         guard isNavigating,
@@ -447,38 +456,14 @@ final class AudioNavigationService: ObservableObject {
         let userPosition = predictedPosition ?? lastUserPosition
         guard let userPos = userPosition else { return }
 
-        // Determine target position
-        // Strategy: Navigate to current waypoint first, then to destination
+        // Determine target position using look-ahead strategy
         let targetPosition: NavPosition
         var targetName: String = ""
 
         if currentWaypointIndex < currentPath.count {
-            // Navigate to current waypoint in the path
-            let currentWaypointId = currentPath[currentWaypointIndex]
-            guard let currentWaypoint = dataService.getWaypoint(byId: currentWaypointId) else { return }
-
-            let distToCurrentWp = userPos.distance2D(to: currentWaypoint.position)
-
-            // If close to current waypoint, target the next one or POI
-            if distToCurrentWp <= waypointReachDistance {
-                if currentWaypointIndex < currentPath.count - 1 {
-                    // Target next waypoint
-                    let nextWaypointId = currentPath[currentWaypointIndex + 1]
-                    guard let nextWaypoint = dataService.getWaypoint(byId: nextWaypointId) else { return }
-                    targetPosition = nextWaypoint.position
-                    targetName = "WP\(nextWaypointId)"
-                } else if let destination = currentDestination {
-                    // At last waypoint, target POI directly
-                    targetPosition = destination.position
-                    targetName = destination.name
-                } else {
-                    return
-                }
-            } else {
-                // Navigate to current waypoint first
-                targetPosition = currentWaypoint.position
-                targetName = "WP\(currentWaypointId)"
-            }
+            // Calculate look-ahead target from multiple upcoming waypoints
+            targetPosition = calculateLookAheadTarget(from: userPos)
+            targetName = "LA-WP\(currentPath[min(currentWaypointIndex, currentPath.count - 1)])"
         } else if let destination = currentDestination {
             // No more waypoints, navigate directly to POI
             targetPosition = destination.position
@@ -509,6 +494,90 @@ final class AudioNavigationService: ObservableObject {
         audioService.playInstruction(instruction)
 
         logger.debug("Nav: \(targetName), \(String(format: "%.1f", distanceToTarget))m, \(String(format: "%.0f", angle))°, \(instruction.description)")
+    }
+
+    /// Look ahead at multiple upcoming waypoints to compute a weighted direction target.
+    /// This smooths out direction changes caused by grid-arranged waypoints transitioning
+    /// between parallel lines, giving the user the overall travel direction rather than
+    /// confusing micro-turns.
+    private func calculateLookAheadTarget(from userPos: NavPosition) -> NavPosition {
+        guard currentWaypointIndex < currentPath.count else {
+            return currentDestination?.position ?? userPos
+        }
+
+        // Collect upcoming waypoint positions (up to lookAheadWaypointCount)
+        var waypoints: [NavPosition] = []
+        var cumulativeDistance: Float = 0
+        var prevPos = userPos
+
+        let startIdx = currentWaypointIndex
+        let endIdx = min(currentPath.count, startIdx + lookAheadWaypointCount)
+
+        for i in startIdx..<endIdx {
+            guard let wp = dataService.getWaypoint(byId: currentPath[i]) else { continue }
+
+            let segDist = prevPos.distance2D(to: wp.position)
+            cumulativeDistance += segDist
+
+            // Stop adding waypoints if we've gone too far ahead
+            if cumulativeDistance > lookAheadMaxDistance && !waypoints.isEmpty {
+                break
+            }
+
+            waypoints.append(wp.position)
+            prevPos = wp.position
+        }
+
+        // If at the last waypoints, also consider the destination POI
+        if endIdx >= currentPath.count - 1, let dest = currentDestination {
+            waypoints.append(dest.position)
+        }
+
+        // If only one waypoint or none, fall back to immediate target
+        guard waypoints.count >= 2 else {
+            return waypoints.first ?? (currentDestination?.position ?? userPos)
+        }
+
+        // Compute weighted average direction: closer waypoints have more influence.
+        // Weight = 1/(index+1), so immediate next WP has weight 1, then 0.5, 0.33, etc.
+        var weightedX: Float = 0
+        var weightedZ: Float = 0
+        var totalWeight: Float = 0
+
+        for (i, wpPos) in waypoints.enumerated() {
+            let weight: Float = 1.0 / Float(i + 1)
+            let dx = wpPos.x - userPos.x
+            let dz = wpPos.z - userPos.z
+            let dist = sqrt(dx * dx + dz * dz)
+
+            if dist > 0.001 {
+                // Use normalized direction * weight (so all waypoints contribute direction, not magnitude)
+                weightedX += (dx / dist) * weight
+                weightedZ += (dz / dist) * weight
+                totalWeight += weight
+            }
+        }
+
+        guard totalWeight > 0 else {
+            return waypoints.first ?? userPos
+        }
+
+        // Average direction
+        let avgDirX = weightedX / totalWeight
+        let avgDirZ = weightedZ / totalWeight
+
+        // Project a target point along the averaged direction at the distance to the immediate waypoint
+        let immediateDist = userPos.distance2D(to: waypoints[0])
+        let projectionDist = max(immediateDist, 2.0) // At least 2m ahead
+
+        let dirMag = sqrt(avgDirX * avgDirX + avgDirZ * avgDirZ)
+        guard dirMag > 0.001 else { return waypoints[0] }
+
+        return NavPosition(
+            x: userPos.x + (avgDirX / dirMag) * projectionDist,
+            y: userPos.y,
+            z: userPos.z + (avgDirZ / dirMag) * projectionDist
+        )
     }
 
     /// Determine navigation instruction with hysteresis to prevent flip-flopping

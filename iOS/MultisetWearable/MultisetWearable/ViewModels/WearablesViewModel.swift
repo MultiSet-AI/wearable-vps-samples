@@ -1,15 +1,14 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
- *
- * This source code is licensed under the license found in the
- * LICENSE file in the root directory of this source tree.
- */
+Copyright (c) 2026 MultiSet AI. All rights reserved.
+Licensed under the MultiSet License. You may not use this file except in compliance with the License. and you can't re-distribute this file without a prior notice
+For license details, visit www.multiset.ai.
+Redistribution in source or binary forms must retain this notice.
+*/
 
 //
 // WearablesViewModel.swift
 //
-// Primary view model for the CameraAccess app that manages DAT SDK integration.
+// Primary view model for the MultiSet Wearable app that manages DAT SDK integration.
 // Demonstrates how to listen to device availability changes using the DAT SDK's
 // device stream functionality and handle permission requests.
 //
@@ -36,7 +35,7 @@ class WearablesViewModel: ObservableObject {
     self.devices = wearables.devices
     self.registrationState = wearables.registrationState
 
-    // Set up device stream immediately
+    // Set up device stream immediately so device listeners are active before streaming starts
     setupDeviceStreamTask = Task {
       await setupDeviceStream()
     }
@@ -96,28 +95,20 @@ class WearablesViewModel: ObservableObject {
     }
   }
 
-  func connectGlasses() {
+  func connectGlasses() async {
     guard registrationState != .registering else { return }
-    Task { @MainActor in
-      do {
-        try await wearables.startRegistration()
-      } catch let error as RegistrationError {
-        showError(error.description)
-      } catch {
-        showError(error.localizedDescription)
-      }
+    do {
+      try await wearables.startRegistration()
+    } catch {
+      showError(error.description)
     }
   }
 
-  func disconnectGlasses() {
-    Task { @MainActor in
-      do {
-        try await wearables.startUnregistration()
-      } catch let error as UnregistrationError {
-        showError(error.description)
-      } catch {
-        showError(error.localizedDescription)
-      }
+  func disconnectGlasses() async {
+    do {
+      try await wearables.startUnregistration()
+    } catch {
+      showError(error.description)
     }
   }
 

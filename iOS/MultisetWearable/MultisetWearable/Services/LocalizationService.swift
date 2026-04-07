@@ -6,7 +6,6 @@ Redistribution in source or binary forms must retain this notice.
 */
 
 import Foundation
-import UIKit
 import os.log
 
 /// Handles network requests for the Multiset Localization API
@@ -16,20 +15,16 @@ final class LocalizationService {
     // MARK: - Singleton
     static let shared = LocalizationService()
 
-    // MARK: - Constants
-    private let maxRetries = 1
-    private let initialRetryDelay: TimeInterval = 1.0
-    private let retryableCodes: Set<Int> = [408, 429, 500, 502, 503, 504]
-    private let jpegQuality: CGFloat = 0.8
-
     // MARK: - Private Properties
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MultiSetWearable", category: "LocalizationService")
     private let authManager = AuthManager.shared
 
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 60
+        config.timeoutIntervalForRequest = 15
+        config.timeoutIntervalForResource = 30
+        config.httpMaximumConnectionsPerHost = 2
+        config.waitsForConnectivity = false
         return URLSession(configuration: config)
     }()
 
@@ -37,35 +32,18 @@ final class LocalizationService {
 
     // MARK: - Public Methods
 
-    /// Send a single-frame localization request
-    /// - Parameters:
-    ///   - image: The captured image from glasses
-    /// - Returns: LocalizationResult on success
-    func sendLocalizationRequest(image: UIImage) async throws -> LocalizationResult {
-        guard let imageData = image.jpegData(compressionQuality: jpegQuality) else {
-            throw LocalizationError.imageConversionFailed
-        }
-
-        let width = Int(image.size.width)
-        let height = Int(image.size.height)
-
-        return try await sendLocalizationRequest(
-            imageData: imageData,
-            imageWidth: width,
-            imageHeight: height
-        )
-    }
-
     /// Send a single-frame localization request with raw image data
     /// - Parameters:
     ///   - imageData: JPEG image data
     ///   - imageWidth: Image width in pixels
     ///   - imageHeight: Image height in pixels
+    ///   - isRightHanded: Coordinate system for the response
     /// - Returns: LocalizationResult on success
     func sendLocalizationRequest(
         imageData: Data,
         imageWidth: Int,
-        imageHeight: Int
+        imageHeight: Int,
+        isRightHanded: Bool = false
     ) async throws -> LocalizationResult {
         // Get auth token
         let token = try await authManager.getToken()
@@ -76,7 +54,8 @@ final class LocalizationService {
             imageData: imageData,
             imageWidth: imageWidth,
             imageHeight: imageHeight,
-            boundary: boundary
+            boundary: boundary,
+            isRightHanded: isRightHanded
         )
 
         guard let url = URL(string: LocalizationConfig.queryURL) else {
@@ -89,50 +68,10 @@ final class LocalizationService {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
 
-        // Execute with retry logic
-        return try await executeWithRetry(request: request)
+        return try await executeRequest(request)
     }
 
     // MARK: - Private Methods
-
-    private func executeWithRetry(request: URLRequest) async throws -> LocalizationResult {
-        var lastError: Error = LocalizationError.unknown
-        var delay = initialRetryDelay
-
-        for attempt in 0..<maxRetries {
-            do {
-                logger.debug("Attempt \(attempt + 1)/\(self.maxRetries)")
-                return try await executeRequest(request)
-            } catch let error as LocalizationError {
-                lastError = error
-
-                // Check if error is retryable
-                if case .httpError(let statusCode) = error, retryableCodes.contains(statusCode) {
-                    logger.warning("Request failed with retryable code \(statusCode), retrying...")
-                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                    delay *= 2  // Exponential backoff
-                    continue
-                }
-
-                // Non-retryable error, throw immediately
-                throw error
-            } catch {
-                lastError = error
-
-                // Network errors are retryable
-                if (error as NSError).domain == NSURLErrorDomain {
-                    logger.warning("Network error, retrying: \(error.localizedDescription)")
-                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                    delay *= 2
-                    continue
-                }
-
-                throw error
-            }
-        }
-
-        throw lastError
-    }
 
     private func executeRequest(_ request: URLRequest) async throws -> LocalizationResult {
         let (data, response) = try await session.data(for: request)
@@ -164,7 +103,8 @@ final class LocalizationService {
         imageData: Data,
         imageWidth: Int,
         imageHeight: Int,
-        boundary: String
+        boundary: String,
+        isRightHanded: Bool = false
     ) -> Data {
         var body = Data()
         let config = LocalizationConfig.shared
@@ -177,8 +117,8 @@ final class LocalizationService {
             body.append("\(value)\r\n")
         }
 
-        // Camera intrinsics
-        addField("isRightHanded", "false")
+        // Camera intrinsics — isRightHanded controls the coordinate system of the response
+        addField("isRightHanded", isRightHanded ? "true" : "false")
         addField("fx", String(format: "%.2f", intrinsics.fx))
         addField("fy", String(format: "%.2f", intrinsics.fy))
         addField("px", String(format: "%.2f", intrinsics.px))
@@ -187,11 +127,11 @@ final class LocalizationService {
         addField("height", "\(imageHeight)")
 
         // Map codes
-        if !LocalizationConfig.mapCode.isEmpty {
-            addField("mapCode", LocalizationConfig.mapCode)
+        if !config.mapCode.isEmpty {
+            addField("mapCode", config.mapCode)
         }
-        if !LocalizationConfig.mapSetCode.isEmpty {
-            addField("mapSetCode", LocalizationConfig.mapSetCode)
+        if !config.mapSetCode.isEmpty {
+            addField("mapSetCode", config.mapSetCode)
         }
 
         // Image file
@@ -209,17 +149,29 @@ final class LocalizationService {
 
     private func calculateIntrinsics(width: Int, height: Int) -> CameraIntrinsics {
         let config = LocalizationConfig.shared
+
+        // Full capture resolution (1080x1440) — use configured intrinsics directly
+        if width == RayBanMetaIntrinsics.width && height == RayBanMetaIntrinsics.height {
+            return config.intrinsics
+        }
+
+        // Medium streaming resolution (504x896) — use pre-computed intrinsics
+        if width == RayBanMetaIntrinsics.mediumWidth && height == RayBanMetaIntrinsics.mediumHeight {
+            return CameraIntrinsics(
+                width: width,
+                height: height,
+                fx: RayBanMetaIntrinsics.mediumFx,
+                fy: RayBanMetaIntrinsics.mediumFy,
+                px: RayBanMetaIntrinsics.mediumPx,
+                py: RayBanMetaIntrinsics.mediumPy
+            )
+        }
+
+        // Fallback: scale from base resolution
         let baseWidth = RayBanMetaIntrinsics.width
         let baseHeight = RayBanMetaIntrinsics.height
         let baseFx = config.focalLengthX
         let baseFy = config.focalLengthY
-
-        // If dimensions match base, use configured intrinsics directly
-        if width == baseWidth && height == baseHeight {
-            return config.intrinsics
-        }
-
-        // Calculate scale factor
         let baseAspect = Float(baseWidth) / Float(baseHeight)
         let imageAspect = Float(width) / Float(height)
 
@@ -256,24 +208,18 @@ final class LocalizationService {
 // MARK: - Errors
 
 enum LocalizationError: LocalizedError {
-    case imageConversionFailed
     case invalidURL
     case invalidResponse
     case httpError(statusCode: Int)
-    case unknown
 
     var errorDescription: String? {
         switch self {
-        case .imageConversionFailed:
-            return "Failed to convert image to JPEG format."
         case .invalidURL:
             return "Invalid API URL."
         case .invalidResponse:
             return "Invalid response from server."
         case .httpError(let statusCode):
             return "Request failed with status code: \(statusCode)"
-        case .unknown:
-            return "An unknown error occurred."
         }
     }
 }

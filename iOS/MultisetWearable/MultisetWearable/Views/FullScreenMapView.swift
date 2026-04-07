@@ -79,8 +79,11 @@ struct FullScreenMapView: View {
             }
         }
         .onAppear {
-            // Fit map to screen and center when view appears
-            viewModel.fitMapToScreen()
+            // During navigation, preserve recenter mode (auto-activated by NavigationMapViewModel).
+            // Otherwise, fit map to screen for manual browsing.
+            if !viewModel.isNavigating {
+                viewModel.fitMapToScreen()
+            }
         }
     }
 

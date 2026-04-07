@@ -44,6 +44,13 @@
 		<key>TeamID</key>
 		<string>$(DEVELOPMENT_TEAM)</string>
 	</dict>
+	<key>MultisetConfig</key>
+	<dict>
+		<key>ClientID</key>
+		<string>$(MULTISET_CLIENT_ID)</string>
+		<key>ClientSecret</key>
+		<string>$(MULTISET_CLIENT_SECRET)</string>
+	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Needed to connect to Meta AI Glasses</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

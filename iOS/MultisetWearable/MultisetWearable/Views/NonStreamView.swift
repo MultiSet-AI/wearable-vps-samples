@@ -109,7 +109,7 @@ struct NonStreamView: View {
         // Connected badge (original behavior)
         Menu {
           Button("Disconnect Glasses", role: .destructive) {
-            wearablesVM.disconnectGlasses()
+            Task { await wearablesVM.disconnectGlasses() }
           }
           .disabled(wearablesVM.registrationState != .registered)
         } label: {
@@ -191,11 +191,11 @@ struct NonStreamView: View {
       )
 
       // Map status
-      if !LocalizationConfig.mapCode.isEmpty {
+      if !config.mapCode.isEmpty {
         HStack(spacing: 6) {
           Image(systemName: "map.fill")
             .font(.system(size: 12))
-          Text(LocalizationConfig.mapCode)
+          Text(config.mapCode)
             .font(.system(size: 12, weight: .medium, design: .monospaced))
         }
         .foregroundColor(AppColors.accentPurple)

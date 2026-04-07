@@ -34,30 +34,61 @@ open MultisetWearable.xcodeproj
 
 ### 2. Configure API Credentials
 
-**Important**: Configure your credentials before building the app.
+Get your credentials from the MultiSet Developer Portal: https://developer.multiset.ai/credentials
 
-Edit `MultisetWearable/Services/LocalizationConfig.swift` and fill in the configuration section:
+There are two ways to supply credentials. Choose the one that fits your workflow:
+
+---
+
+#### Option A — Hardcode defaults in Swift (quick local testing)
+
+Edit `MultisetWearable/Services/LocalizationConfig.swift` and fill in the defaults directly:
 
 ```swift
-// ╔════════════════════════════════════════════════════════════════════════════╗
-// ║                    CONFIGURE YOUR CREDENTIALS HERE                          ║
-// ╚════════════════════════════════════════════════════════════════════════════╝
+// MARK: - Hardcoded Credential Defaults
+private static let defaultClientID     = "your_client_id_here"
+private static let defaultClientSecret = "your_client_secret_here"
 
-/// Your MultiSet Client ID
-static let clientId = "your_client_id_here"
-
-/// Your MultiSet Client Secret
-static let clientSecret = "your_client_secret_here"
-
-/// Your Map Code for single-map localization (e.g., "MAP_XXXXXXXXXX")
-static let mapCode = "MAP_XXXXXXXXXX"
-
-/// Your Map Set Code for multi-map localization
-/// Leave empty if using mapCode instead
-static let mapSetCode = ""
+// MARK: - Enter Map/MapSet Code
+private static let mapCode    = "MAP_XXXXXXXXXX"   // for single-map localization
+private static let mapSetCode = ""                  // for multi-map; leave empty if using mapCode
 ```
 
-Get your credentials from the MultiSet Developer Portal: https://developer.multiset.ai/credentials
+> **Note**: Keep secrets out of source control. Use this option only for local testing.
+
+---
+
+#### Option B — Info.plist + xcconfig (recommended for shared / production builds)
+
+1. Add your build variables to an `.xcconfig` file (or in Xcode → Build Settings → User-Defined):
+
+   ```
+   MULTISET_CLIENT_ID     = your_client_id_here
+   MULTISET_CLIENT_SECRET = your_client_secret_here
+   ```
+
+2. The `Info.plist` already contains the `MultisetConfig` dictionary that reads these variables:
+
+   ```xml
+   <key>MultisetConfig</key>
+   <dict>
+       <key>ClientID</key>
+       <string>$(MULTISET_CLIENT_ID)</string>
+       <key>ClientSecret</key>
+       <string>$(MULTISET_CLIENT_SECRET)</string>
+   </dict>
+   ```
+
+   The app resolves `ClientID` / `ClientSecret` from `Info.plist` at runtime. If the keys are absent or unresolved, it falls back to the hardcoded defaults in Option A.
+
+---
+
+#### Setting Map Code at Runtime (alternative to hardcoding)
+
+`mapCode` and `mapSetCode` are persisted in **UserDefaults** and can also be set without recompiling:
+
+- Open the **Settings screen** (gear icon) inside the app and enter your Map Code there, **or**
+- Set them programmatically: `LocalizationConfig.shared.mapCode = "MAP_XXXXXXXXXX"`
 
 ### 3. Build and Run
 
@@ -159,15 +190,27 @@ The app sends a multipart/form-data request with the following fields:
 
 ### Camera Intrinsics
 
-The app uses calibrated camera intrinsics for Ray-Ban Meta glasses:
+The app uses calibrated camera intrinsics for Ray-Ban Meta glasses. Two resolution presets are available:
+
+**High-resolution capture (1080 × 1440)**
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| Resolution | 1080 x 1440 | Capture resolution |
+| Resolution | 1080 × 1440 | Full capture resolution |
 | Focal Length (fx) | 844.5 px | Horizontal focal length |
 | Focal Length (fy) | 845.8 px | Vertical focal length |
 | Principal Point (px) | 540.7 px | Optical center X |
 | Principal Point (py) | 727.5 px | Optical center Y |
+
+**Medium streaming resolution (504 × 896)**
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| Resolution | 504 × 896 | Center-cropped 9:16 streaming resolution |
+| Focal Length (fx) | 525.5 px | Scaled from calibrated fx |
+| Focal Length (fy) | 526.3 px | Scaled from calibrated fy |
+| Principal Point (px) | 252.0 px | Center of 504 px width |
+| Principal Point (py) | 448.0 px | Center of 896 px height |
 
 ---
 

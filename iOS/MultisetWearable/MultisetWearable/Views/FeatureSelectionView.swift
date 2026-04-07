@@ -17,7 +17,6 @@ struct FeatureSelectionView: View {
 
     @State private var selectedFeature: AppFeature?
     @State private var showSettings = false
-    @State private var showCredentialsAlert = false
 
     private let config = LocalizationConfig.shared
 
@@ -68,20 +67,6 @@ struct FeatureSelectionView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
-        .alert("Configuration Required", isPresented: $showCredentialsAlert) {
-            Button("View Status") {
-                showSettings = true
-            }
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("API credentials are not configured.\n\nPlease add your credentials in LocalizationConfig.swift and rebuild the app.")
-        }
-        .onAppear {
-            // Show alert if credentials are missing on first appearance
-            if !config.hasCredentials {
-                showCredentialsAlert = true
-            }
-        }
         .fullScreenCover(item: $selectedFeature) { feature in
             switch feature {
             case .localization:
@@ -107,7 +92,7 @@ struct FeatureSelectionView: View {
             // Connected badge with disconnect menu
             Menu {
                 Button("Disconnect Glasses", role: .destructive) {
-                    wearablesVM.disconnectGlasses()
+                    Task { await wearablesVM.disconnectGlasses() }
                 }
                 .disabled(wearablesVM.registrationState != .registered)
             } label: {
@@ -183,21 +168,13 @@ struct FeatureSelectionView: View {
         }
     }
 
-    private var alertMessage: String {
-        let errors = config.missingConfiguration
-        if errors.isEmpty {
-            return "All configuration is complete."
-        }
-        return errors.map { "• \($0.message)" }.joined(separator: "\n")
-    }
-
     private var configWarningBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 16))
                 .foregroundColor(AppColors.yellow)
 
-            Text("Configure credentials in LocalizationConfig.swift and rebuild")
+            Text("Configure API credentials and map in settings first")
                 .font(.system(size: 13))
                 .foregroundColor(AppColors.textSecondary)
 
@@ -206,7 +183,7 @@ struct FeatureSelectionView: View {
             Button {
                 showSettings = true
             } label: {
-                Text("Status")
+                Text("Setup")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(AppColors.deepBlue)
             }

@@ -31,6 +31,7 @@ actor AuthManager {
     func getToken() async throws -> String {
         // Return cached token if still valid (with 5 minute buffer)
         if let token = cachedToken, Date() < tokenExpiry.addingTimeInterval(-tokenExpiryBuffer) {
+            logger.debug("Using cached auth token")
             return token
         }
 
@@ -67,7 +68,7 @@ actor AuthManager {
             throw AuthError.notConfigured
         }
 
-        let credentials = "\(LocalizationConfig.clientId):\(LocalizationConfig.clientSecret)"
+        let credentials = "\(config.clientID):\(config.clientSecret)"
         guard let credentialsData = credentials.data(using: .utf8) else {
             throw AuthError.invalidCredentials
         }
