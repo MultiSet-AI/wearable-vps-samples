@@ -70,8 +70,10 @@ class StreamSessionViewModel: ObservableObject {
   /// Minimum confidence threshold for accepting localization results (40%)
   private let minimumConfidenceThreshold: Float = 0.4
   private let speechManager = SpeechManager.shared
-  // The core DAT SDK StreamSession - handles all streaming operations
-  private var streamSession: StreamSession
+  // DAT SDK flow: DeviceSession → addStream → StreamSession
+  private var deviceSession: DeviceSession?
+  private var streamSession: StreamSession?
+  private let streamSessionConfig: StreamSessionConfig
   // Listener tokens are used to manage DAT SDK event subscriptions
   private var stateListenerToken: AnyListenerToken?
   private var videoFrameListenerToken: AnyListenerToken?
@@ -80,38 +82,116 @@ class StreamSessionViewModel: ObservableObject {
   private let wearables: WearablesInterface
   private let deviceSelector: AutoDeviceSelector
   private var deviceMonitorTask: Task<Void, Never>?
+  private var deviceStateObserverTask: Task<Void, Never>?
 
   init(wearables: WearablesInterface) {
     self.wearables = wearables
     // Let the SDK auto-select from available devices
     self.deviceSelector = AutoDeviceSelector(wearables: wearables)
-    let config = StreamSessionConfig(
+    self.streamSessionConfig = StreamSessionConfig(
       videoCodec: VideoCodec.raw,
       resolution: StreamingResolution.medium,
       frameRate: 24)
-    streamSession = StreamSession(streamSessionConfig: config, deviceSelector: deviceSelector)
 
-    // Monitor device availability
-    deviceMonitorTask = Task { @MainActor in
-      for await device in deviceSelector.activeDeviceStream() {
+    // Monitor device availability and pre-warm the device session so user-initiated
+    // streaming starts immediately. When a device disconnects we tear everything down
+    deviceMonitorTask = Task { @MainActor [weak self] in
+      guard let self else { return }
+      for await device in self.deviceSelector.activeDeviceStream() {
         self.hasActiveDevice = device != nil
+        if device != nil {
+          _ = await self.getDeviceSession()
+        } else {
+          self.handleDeviceLost()
+        }
       }
     }
+  }
 
-    // Subscribe to session state changes using the DAT SDK listener pattern
-    // State changes tell us when streaming starts, stops, or encounters issues
-    stateListenerToken = streamSession.statePublisher.listen { [weak self] state in
+  /// Return a DeviceSession in `.started` state, creating one if needed and awaiting
+  /// the state transition via `stateStream()`. Returns nil if creation or start fails.
+  ///`DeviceSession.stopped` is terminal — a stopped session cannot be
+  /// restarted, so we discard it and create a fresh one.
+  private func getDeviceSession() async -> DeviceSession? {
+    if let session = deviceSession, session.state == .started {
+      return session
+    }
+
+    if deviceSession?.state == .stopped {
+      deviceStateObserverTask?.cancel()
+      deviceStateObserverTask = nil
+      deviceSession = nil
+    }
+
+    guard deviceSession == nil else { return nil }
+
+    do {
+      let session = try wearables.createSession(deviceSelector: deviceSelector)
+      deviceSession = session
+
+      let stateStream = session.stateStream()
+      try session.start()
+
+      for await state in stateStream {
+        if state == .started {
+          startDeviceStateObserver(for: session)
+          return session
+        } else if state == .stopped {
+          deviceSession = nil
+          return nil
+        }
+      }
+    } catch {
+      showError("Failed to create session: \(error.localizedDescription)")
+      deviceSession = nil
+    }
+    return nil
+  }
+
+  /// Watch the DeviceSession for the terminal `.stopped` state and clean up when
+  /// it fires so the next start() can create a fresh session.
+  private func startDeviceStateObserver(for session: DeviceSession) {
+    deviceStateObserverTask?.cancel()
+    deviceStateObserverTask = Task { @MainActor [weak self] in
+      for await state in session.stateStream() {
+        guard let self else { return }
+        if state == .stopped {
+          self.deviceSession = nil
+          self.streamSession = nil
+          self.clearStreamListeners()
+          return
+        }
+      }
+    }
+  }
+
+  private func handleDeviceLost() {
+    deviceStateObserverTask?.cancel()
+    deviceStateObserverTask = nil
+    deviceSession?.stop()
+    deviceSession = nil
+    streamSession = nil
+    clearStreamListeners()
+    streamingStatus = .stopped
+  }
+
+  private func clearStreamListeners() {
+    stateListenerToken = nil
+    videoFrameListenerToken = nil
+    errorListenerToken = nil
+    photoDataListenerToken = nil
+  }
+
+  private func setupStreamListeners(for stream: StreamSession) {
+    stateListenerToken = stream.statePublisher.listen { [weak self] state in
       Task { @MainActor [weak self] in
         self?.updateStatusFromState(state)
       }
     }
 
-    // Subscribe to video frames from the device camera
-    // Each VideoFrame contains the raw camera data that we convert to UIImage
-    videoFrameListenerToken = streamSession.videoFramePublisher.listen { [weak self] videoFrame in
+    videoFrameListenerToken = stream.videoFramePublisher.listen { [weak self] videoFrame in
       Task { @MainActor [weak self] in
         guard let self else { return }
-
         if let image = videoFrame.makeUIImage() {
           self.currentVideoFrame = image
           if !self.hasReceivedFirstFrame {
@@ -121,9 +201,7 @@ class StreamSessionViewModel: ObservableObject {
       }
     }
 
-    // Subscribe to streaming errors
-    // Errors include device disconnection, streaming failures, etc.
-    errorListenerToken = streamSession.errorPublisher.listen { [weak self] error in
+    errorListenerToken = stream.errorPublisher.listen { [weak self] error in
       Task { @MainActor [weak self] in
         guard let self else { return }
         let newErrorMessage = formatStreamingError(error)
@@ -133,21 +211,18 @@ class StreamSessionViewModel: ObservableObject {
       }
     }
 
-    updateStatusFromState(streamSession.state)
-
-    // Subscribe to photo capture events
-    // PhotoData contains the captured image in the requested format (JPEG/HEIC)
-    // When localizing, the captured image is sent to the localization API
-    photoDataListenerToken = streamSession.photoDataPublisher.listen { [weak self] photoData in
+    photoDataListenerToken = stream.photoDataPublisher.listen { [weak self] photoData in
       Task { @MainActor [weak self] in
         guard let self else { return }
         if let uiImage = UIImage(data: photoData.data) {
           self.capturedPhoto = uiImage
 
-          // If we're localizing, send raw JPEG data directly to API
-          // to avoid re-encoding (UIImage → JPEG) overhead
+          // If we're localizing, downscale to half resolution (540x720) before
+          // sending — the API rejects images with max side > 1280, and Ray-Ban
+          // Meta captures come in at 1080x1440.
           if self.isLocalizing {
-            await self.performLocalization(jpegData: photoData.data, image: uiImage)
+            let (jpegData, image) = Self.resizeCaptureForLocalization(uiImage) ?? (photoData.data, uiImage)
+            await self.performLocalization(jpegData: jpegData, image: image)
           } else {
             self.showPhotoPreview = true
           }
@@ -159,6 +234,7 @@ class StreamSessionViewModel: ObservableObject {
   deinit {
     // Cancel all tasks to prevent memory leaks
     deviceMonitorTask?.cancel()
+    deviceStateObserverTask?.cancel()
     timerTask?.cancel()
     periodicLocalizationTask?.cancel()
   }
@@ -188,7 +264,21 @@ class StreamSessionViewModel: ObservableObject {
     remainingTime = 0
     stopTimer()
 
-    await streamSession.start()
+    // the DeviceSession must reach `.started` before `addStream` will
+    // succeed. `getDeviceSession` handles creation + the state-stream await.
+    guard let deviceSession = await getDeviceSession(), deviceSession.state == .started else {
+      return
+    }
+
+    guard let stream = try? deviceSession.addStream(config: streamSessionConfig) else {
+      showError("Failed to add stream to device session.")
+      return
+    }
+    streamSession = stream
+    streamingStatus = .waiting
+    setupStreamListeners(for: stream)
+
+    await stream.start()
 
     // Pre-warm auth token in background so first localization doesn't pay the fetch penalty
     Task {
@@ -203,7 +293,14 @@ class StreamSessionViewModel: ObservableObject {
 
   func stopSession() async {
     stopTimer()
-    await streamSession.stop()
+    guard let stream = streamSession else { return }
+    streamSession = nil
+    clearStreamListeners()
+    streamingStatus = .stopped
+    currentVideoFrame = nil
+    hasReceivedFirstFrame = false
+    await stream.stop()
+    // Keep DeviceSession alive so a subsequent startSession() can re-addStream quickly.
   }
 
   func dismissError() {
@@ -223,7 +320,7 @@ class StreamSessionViewModel: ObservableObject {
   }
 
   func capturePhoto() {
-    streamSession.capturePhoto(format: .jpeg)
+    streamSession?.capturePhoto(format: .jpeg)
   }
 
   func dismissPhotoPreview() {
@@ -258,7 +355,7 @@ class StreamSessionViewModel: ObservableObject {
     NavigationAudioService.shared.playLocalizationAudio(.localizing)
 
     // Capture photo - the listener will handle sending to API
-    streamSession.capturePhoto(format: .jpeg)
+    streamSession?.capturePhoto(format: .jpeg)
   }
 
   private func performLocalization(jpegData: Data, image: UIImage) async {
@@ -431,7 +528,7 @@ class StreamSessionViewModel: ObservableObject {
       // Fallback to photo capture if no video frame available
       isLocalizing = true
       localizationStatus = .capturing
-      streamSession.capturePhoto(format: .jpeg)
+      streamSession?.capturePhoto(format: .jpeg)
       return
     }
 
@@ -472,6 +569,26 @@ class StreamSessionViewModel: ObservableObject {
     case .streaming:
       streamingStatus = .streaming
     }
+  }
+
+  /// Downscale a Ray-Ban Meta capture (nominally 1080x1440) to the half-resolution
+  /// form expected by the localization API (max side 1280). Redrawing also bakes
+  /// EXIF orientation into the pixel buffer so the declared width/height match the
+  /// JPEG bytes that actually get uploaded.
+  private static func resizeCaptureForLocalization(_ image: UIImage) -> (Data, UIImage)? {
+    let targetSize = CGSize(
+      width: CGFloat(RayBanMetaIntrinsics.halfWidth),
+      height: CGFloat(RayBanMetaIntrinsics.halfHeight)
+    )
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1.0
+    format.opaque = true
+    let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+    let resized = renderer.image { _ in
+      image.draw(in: CGRect(origin: .zero, size: targetSize))
+    }
+    guard let jpegData = resized.jpegData(compressionQuality: 0.85) else { return nil }
+    return (jpegData, resized)
   }
 
   private func formatStreamingError(_ error: StreamSessionError) -> String {

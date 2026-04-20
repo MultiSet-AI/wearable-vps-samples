@@ -155,6 +155,18 @@ final class LocalizationService {
             return config.intrinsics
         }
 
+        // Half capture resolution (540x720) — scale configured intrinsics by 0.5
+        if width == RayBanMetaIntrinsics.halfWidth && height == RayBanMetaIntrinsics.halfHeight {
+            return CameraIntrinsics(
+                width: width,
+                height: height,
+                fx: config.focalLengthX * 0.5,
+                fy: config.focalLengthY * 0.5,
+                px: RayBanMetaIntrinsics.halfPx,
+                py: RayBanMetaIntrinsics.halfPy
+            )
+        }
+
         // Medium streaming resolution (504x896) — use pre-computed intrinsics
         if width == RayBanMetaIntrinsics.mediumWidth && height == RayBanMetaIntrinsics.mediumHeight {
             return CameraIntrinsics(

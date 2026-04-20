@@ -175,6 +175,14 @@ enum RayBanMetaIntrinsics {
     static let calibratedFx: Float = 844.5  // 1276.095 * 0.6618
     static let calibratedFy: Float = 845.8  // 1278.037 * 0.6618
 
+    // Half-capture resolution (540x720) — captured JPEG is downscaled by 0.5 before upload 
+    static let halfWidth = 540
+    static let halfHeight = 720
+    static let halfPx: Float = 270.35            // 540.7 * 0.5
+    static let halfPy: Float = 363.75            // 727.5 * 0.5
+    static let calibratedHalfFx: Float = 422.25  // 844.5 * 0.5
+    static let calibratedHalfFy: Float = 422.9   // 845.8 * 0.5
+
     // Medium streaming resolution (504x896) intrinsics
     // The SDK crops the 3:4 sensor to 9:16 (center-crop on width) then scales.
     // Effective source crop at 1632 wide: height=2176, 9:16 width = 2176*9/16 = 1224, centered at cx=816
