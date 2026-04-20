@@ -81,6 +81,12 @@ struct FeatureSelectionView: View {
                     wearablesVM: wearablesVM,
                     onDismiss: { selectedFeature = nil }
                 )
+            case .multiplayer:
+                MultiplayerDemoView(
+                    wearables: wearables,
+                    wearablesVM: wearablesVM,
+                    onDismiss: { selectedFeature = nil }
+                )
             }
         }
     }

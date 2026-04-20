@@ -53,6 +53,13 @@
 	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Needed to connect to Meta AI Glasses</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_multiset-sdk._tcp</string>
+		<string>_multiset-sdk._udp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app uses the local network to connect with nearby devices for multiplayer AR.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app needs access to save photos captured from your glasses.</string>
 	<key>UIApplicationSceneManifest</key>

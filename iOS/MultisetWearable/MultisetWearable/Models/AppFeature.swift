@@ -7,10 +7,11 @@ Redistribution in source or binary forms must retain this notice.
 
 import SwiftUI
 
-/// Represents the two main feature experiences in the app
+/// Represents the demo experiences in the app
 enum AppFeature: String, CaseIterable, Identifiable {
     case localization = "Localization Demo"
     case navigation = "Navigation Demo"
+    case multiplayer = "Multiplayer Demo"
 
     var id: String { rawValue }
 
@@ -21,6 +22,8 @@ enum AppFeature: String, CaseIterable, Identifiable {
             return "Localization Demo"
         case .navigation:
             return "Navigation Demo"
+        case .multiplayer:
+            return "Multiplayer Demo"
         }
     }
 
@@ -31,6 +34,8 @@ enum AppFeature: String, CaseIterable, Identifiable {
             return "Capture images and test positioning with real-time pose data"
         case .navigation:
             return "Full navigation with audio-guided turn-by-turn directions"
+        case .multiplayer:
+            return "Share your pose with a nearby host so others can see your position"
         }
     }
 
@@ -41,6 +46,8 @@ enum AppFeature: String, CaseIterable, Identifiable {
             return "location.viewfinder"
         case .navigation:
             return "point.topleft.down.to.point.bottomright.curvepath.fill"
+        case .multiplayer:
+            return "person.2.fill"
         }
     }
 
@@ -51,6 +58,8 @@ enum AppFeature: String, CaseIterable, Identifiable {
             return AppColors.accentBlue
         case .navigation:
             return AppColors.accentGreen
+        case .multiplayer:
+            return AppColors.accentPurple
         }
     }
 }

@@ -1,24 +1,28 @@
 # MultiSet VPS for Wearables
 
-A sample iOS application demonstrating Visual Positioning System (VPS) integration with Meta Ray-Ban Smart Glasses. This app showcases localization and turn-by-turn navigation using the MultiSet VPS API and Meta Wearables Device Access Toolkit (DAT SDK).
+A sample iOS application demonstrating Visual Positioning System (VPS) integration with Meta Ray-Ban Smart Glasses. This app showcases localization, turn-by-turn navigation, and multiplayer pose sharing using the MultiSet VPS API and the Meta Wearables Device Access Toolkit (DAT SDK).
 
 ## Features
 
 - **Smart Glasses Pairing**: Connect to Meta Ray-Ban Smart Glasses via Bluetooth
 - **Live Video Streaming**: Real-time camera feed from the glasses
-- **VPS Localization**: Capture images and get precise 6DOF position and orientation
+- **VPS Localization**: Capture images and get precise 6-DOF position and orientation
 - **Navigation**: Turn-by-turn audio guidance to Points of Interest (POIs)
+- **Multiplayer Demo**: Act as a client that joins a host running the MultiSet iOS SDK and streams its localized pose for real-time shared-space experiences
 - **Audio Feedback**: Navigation instructions played through the glasses speakers
+- **Optimized Streaming & Localization**: Session pre-warming, on-device image downscaling, video-frame fast path, and confidence-gated retries for low end-to-end latency
 
 ## Prerequisites
 
 - iOS 17.0+
 - Xcode 15.0+
 - Swift 5.0+
-- Meta Ray-Ban Smart Glasses
+- Meta Ray-Ban Smart Glasses (with the latest firmware)
 - Meta AI App with Developer Mode enabled
+- Meta Wearables DAT SDK 0.6.0 (resolved automatically via Swift Package Manager)
 - MultiSet VPS API credentials (Client ID and Client Secret)
 - A mapped environment with navigation data
+- (Multiplayer only) A second device running the MultiSet iOS SDK multiplayer host, on the same local network as the iPhone running this app
 
 ---
 
@@ -152,20 +156,20 @@ During streaming, you can capture photos by:
 
 ### Localization Request Payload
 
-The app sends a multipart/form-data request with the following fields:
+The app sends a multipart/form-data request with the following fields. The examples shown are the values produced after the on-device downscale described in [Performance Optimizations](#performance-optimizations):
 
 | Field | Description | Example |
 |-------|-------------|---------|
-| `queryImage` | JPEG image from glasses camera | Binary data |
-| `width` | Image width in pixels | `1080` |
-| `height` | Image height in pixels | `1440` |
-| `fx` | Focal length X (pixels) | `844.5` |
-| `fy` | Focal length Y (pixels) | `845.8` |
-| `px` | Principal point X | `540.7` |
-| `py` | Principal point Y | `727.5` |
+| `queryImage` | JPEG image from glasses camera (downscaled before upload) | Binary data |
+| `width` | Image width in pixels | `540` |
+| `height` | Image height in pixels | `720` |
+| `fx` | Focal length X (pixels) | `422.25` |
+| `fy` | Focal length Y (pixels) | `422.9` |
+| `px` | Principal point X | `270.35` |
+| `py` | Principal point Y | `363.75` |
 | `mapCode` | Target map identifier | `MAP_XXXXXXXXXX` |
 | `mapSetCode` | Map set identifier (optional) | `MAPSET_XXX` |
-| `isRightHanded` | Coordinate system flag | `false` |
+| `isRightHanded` | Coordinate system flag (`false` for Unity/left-handed, `true` for ARKit/right-handed) | `false` |
 
 ### Localization Response
 
@@ -190,19 +194,19 @@ The app sends a multipart/form-data request with the following fields:
 
 ### Camera Intrinsics
 
-The app uses calibrated camera intrinsics for Ray-Ban Meta glasses. Two resolution presets are available:
+The app uses calibrated camera intrinsics for Ray-Ban Meta glasses. Three resolution presets are available, each with its own set of intrinsics. The localization API caps input images at 1280 px on the longest side, so the full-capture frame is downscaled before upload — the app picks the right set of intrinsics automatically.
 
-**High-resolution capture (1080 × 1440)**
+**Localization upload (540 × 720)** — full capture scaled 0.5× for the VPS API
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| Resolution | 1080 × 1440 | Full capture resolution |
-| Focal Length (fx) | 844.5 px | Horizontal focal length |
-| Focal Length (fy) | 845.8 px | Vertical focal length |
-| Principal Point (px) | 540.7 px | Optical center X |
-| Principal Point (py) | 727.5 px | Optical center Y |
+| Resolution | 540 × 720 | Half capture resolution used in the upload payload |
+| Focal Length (fx) | 422.25 px | Scaled from calibrated fx (× 0.5) |
+| Focal Length (fy) | 422.9 px | Scaled from calibrated fy (× 0.5) |
+| Principal Point (px) | 270.35 px | Scaled principal point X |
+| Principal Point (py) | 363.75 px | Scaled principal point Y |
 
-**Medium streaming resolution (504 × 896)**
+**Medium streaming resolution (504 × 896)** — used for the live video feed and the fast-path navigation re-localization
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
@@ -244,6 +248,30 @@ User Localizes → Selects POI → Path Calculated → Navigation Starts
 3. Tap **"Select Destination"** to view available POIs
 4. Select a POI from the list
 5. Navigation begins with audio instructions
+
+---
+
+## Multiplayer Demo
+
+The Multiplayer Demo lets a user wearing Ray-Ban Meta glasses join a shared-space session hosted on another device running the **MultiSet iOS SDK**. The wearable app acts as a **client**: it streams video from the glasses, localizes against the same map the host is using, and broadcasts its 6-DOF pose to the host so the host can render this player's position (and optionally an avatar) inside a live AR scene.
+
+### How It Works
+
+- **Transport**: Apple Multipeer Connectivity on the local network. The service type is `multiset-sdk`, which matches the MultiSet iOS SDK host. No internet connection is required between the two devices once connected.
+- **Discovery**: The wearable app browses for peers advertising the `multiset-sdk` service and auto-joins the first host that accepts the invitation.
+- **Localization**: The client localizes once when the session starts, then periodically re-localizes (roughly once per second) to keep the pose fresh. Re-localization uses the fast video-frame path, so it doesn't incur a Bluetooth photo round-trip.
+- **Pose streaming**: While localized, the app sends pose updates to the host at ~20 Hz over unreliable datagrams (prioritizes freshness over delivery guarantees). Player info (name and a randomly assigned vibrant color) is sent reliably.
+- **Coordinate system**: Multiplayer uses the same left-handed coordinate system as the Unity-based host by default, so poses drop directly into the host's world without conversion. The request still sets `isRightHanded=false`.
+- **Audio**: Re-localization runs silently during multiplayer so the host experience isn't interrupted by success/failure chimes on the glasses.
+
+### Running the Demo
+
+1. Start the MultiSet iOS SDK multiplayer host on a nearby device and load the same map used by this app (same `mapCode`).
+2. Make sure both devices are on the same Wi-Fi network and that Local Network permission is granted to this app (iOS prompts the first time).
+3. Launch MultiSet Wearable, pair the glasses, and pick **"Multiplayer Demo"** from the feature selection screen.
+4. Enter a display name (or accept the device-name default) and tap **Join Session**. The app browses for the host and connects automatically.
+5. Tap **Start Streaming**. After the first successful localization, the glasses' pose starts streaming to the host and your avatar appears in the host scene.
+6. Leave the session at any time — the app tears down the multipeer session and stops the stream cleanly.
 
 ---
 

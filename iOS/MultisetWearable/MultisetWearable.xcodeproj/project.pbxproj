@@ -60,6 +60,9 @@
 		52DA84D92F3AF741008F37EC /* MapPreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA84A22F3AF741008F37EC /* MapPreviewCard.swift */; };
 		52DA84DA2F3AF741008F37EC /* StreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA84B32F3AF741008F37EC /* StreamView.swift */; };
 		52DA84DB2F3AF741008F37EC /* NavigationInstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA848A2F3AF741008F37EC /* NavigationInstruction.swift */; };
+		52DA84E32F3AF741008F37EC /* NetworkModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA84E02F3AF741008F37EC /* NetworkModels.swift */; };
+		52DA84E42F3AF741008F37EC /* MultipeerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA84E12F3AF741008F37EC /* MultipeerManager.swift */; };
+		52DA84E52F3AF741008F37EC /* MultiplayerDemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA84E22F3AF741008F37EC /* MultiplayerDemoView.swift */; };
 		8FD96B7F2E6F0A9800F56AB1 /* MultisetWearableApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD96B792E6F0A9800F56AB1 /* MultisetWearableApp.swift */; };
 		8FD96B952E6F0F7D00F56AB1 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8FD96B942E6F0F7D00F56AB1 /* MWDATCore */; };
 		8FD96B952E6F0F7D00F56AB2 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = 8FD96B942E6F0F7D00F56AB2 /* MWDATCamera */; };
@@ -133,6 +136,9 @@
 		52DA84B12F3AF741008F37EC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		52DA84B22F3AF741008F37EC /* StreamSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamSessionView.swift; sourceTree = "<group>"; };
 		52DA84B32F3AF741008F37EC /* StreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamView.swift; sourceTree = "<group>"; };
+		52DA84E02F3AF741008F37EC /* NetworkModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkModels.swift; sourceTree = "<group>"; };
+		52DA84E12F3AF741008F37EC /* MultipeerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultipeerManager.swift; sourceTree = "<group>"; };
+		52DA84E22F3AF741008F37EC /* MultiplayerDemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerDemoView.swift; sourceTree = "<group>"; };
 		8FD96B782E6F0A9800F56AB1 /* MultisetWearable.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MultisetWearable.entitlements; sourceTree = "<group>"; };
 		8FD96B792E6F0A9800F56AB1 /* MultisetWearableApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultisetWearableApp.swift; sourceTree = "<group>"; };
 		8FD96B7B2E6F0A9800F56AB1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -194,6 +200,7 @@
 				52DA84892F3AF741008F37EC /* LocalizationResponse.swift */,
 				52DA848A2F3AF741008F37EC /* NavigationInstruction.swift */,
 				52DA848B2F3AF741008F37EC /* NavigationModels.swift */,
+				52DA84E02F3AF741008F37EC /* NetworkModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -205,6 +212,7 @@
 				52DA848E2F3AF741008F37EC /* AuthManager.swift */,
 				52DA848F2F3AF741008F37EC /* LocalizationConfig.swift */,
 				52DA84902F3AF741008F37EC /* LocalizationService.swift */,
+				52DA84E12F3AF741008F37EC /* MultipeerManager.swift */,
 				52DA84912F3AF741008F37EC /* NavigationAudioService.swift */,
 				52DA84922F3AF741008F37EC /* NavigationDataService.swift */,
 				52DA84932F3AF741008F37EC /* SpeechManager.swift */,
@@ -256,6 +264,7 @@
 				52DA84A82F3AF741008F37EC /* LocalizationDemoView.swift */,
 				52DA84A92F3AF741008F37EC /* LocalizationHomeView.swift */,
 				52DA84AA2F3AF741008F37EC /* MainAppView.swift */,
+				52DA84E22F3AF741008F37EC /* MultiplayerDemoView.swift */,
 				52DA84AB2F3AF741008F37EC /* NavigationMapView.swift */,
 				52DA84AC2F3AF741008F37EC /* NavigationStatusView.swift */,
 				52DA84AD2F3AF741008F37EC /* NonStreamView.swift */,
@@ -435,6 +444,9 @@
 				52DA84D92F3AF741008F37EC /* MapPreviewCard.swift in Sources */,
 				52DA84DA2F3AF741008F37EC /* StreamView.swift in Sources */,
 				52DA84DB2F3AF741008F37EC /* NavigationInstruction.swift in Sources */,
+				52DA84E32F3AF741008F37EC /* NetworkModels.swift in Sources */,
+				52DA84E42F3AF741008F37EC /* MultipeerManager.swift in Sources */,
+				52DA84E52F3AF741008F37EC /* MultiplayerDemoView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

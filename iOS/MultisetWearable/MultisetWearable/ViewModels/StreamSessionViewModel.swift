@@ -57,6 +57,11 @@ class StreamSessionViewModel: ObservableObject {
   @Published var localizationStatus: LocalizationStatus = .idle
   @Published var localizationResult: LocalizationResult?
   @Published var isLocalizing: Bool = false
+  /// When true, suppresses audio feedback during localization (used by multiplayer re-localization)
+  var isSilentLocalization: Bool = false
+  /// When true, requests right-handed (ARKit) coordinates from the API instead of left-handed (Unity).
+  /// Multiplayer leaves this false so the host receives Unity-space poses directly.
+  var useRightHandedCoordinates: Bool = false
 
   // Navigation properties
   @Published var showPOIList: Bool = false
@@ -347,6 +352,7 @@ class StreamSessionViewModel: ObservableObject {
       return
     }
 
+    isSilentLocalization = false
     isLocalizing = true
     localizationStatus = .capturing
     localizationResult = nil
@@ -356,6 +362,29 @@ class StreamSessionViewModel: ObservableObject {
 
     // Capture photo - the listener will handle sending to API
     streamSession?.capturePhoto(format: .jpeg)
+  }
+
+  /// Trigger localization silently (no audio feedback).
+  /// Used for periodic multiplayer re-localization.
+  /// Uses current video frame directly to skip Bluetooth photo capture round-trip.
+  func localizeSilently() {
+    guard canLocalize else { return }
+
+    isSilentLocalization = true
+    isLocalizing = true
+
+    // Use current video frame for faster localization
+    if let frame = currentVideoFrame,
+       let jpegData = frame.jpegData(compressionQuality: 0.85) {
+      localizationStatus = .localizing
+      Task { @MainActor in
+        await performLocalization(jpegData: jpegData, image: frame)
+      }
+    } else {
+      // Fallback to photo capture if no video frame
+      localizationStatus = .capturing
+      streamSession?.capturePhoto(format: .jpeg)
+    }
   }
 
   private func performLocalization(jpegData: Data, image: UIImage) async {
@@ -369,7 +398,8 @@ class StreamSessionViewModel: ObservableObject {
       let result = try await localizationService.sendLocalizationRequest(
         imageData: jpegData,
         imageWidth: width,
-        imageHeight: height
+        imageHeight: height,
+        isRightHanded: useRightHandedCoordinates
       )
 
       // Check confidence threshold - if below minimum, retry localization
@@ -411,14 +441,14 @@ class StreamSessionViewModel: ObservableObject {
           navigationService.updatePosition(position: position, rotation: rotation)
         }
 
-        // Play success audio (but not during navigation to avoid audio overlap)
-        if !isNavigationActive {
+        // Play success audio (but not during navigation or silent localization)
+        if !isNavigationActive && !isSilentLocalization {
           NavigationAudioService.shared.playLocalizationAudio(.success)
           // Don't show photo preview automatically - user can tap info button to see details
         }
       } else {
         localizationStatus = .failure
-        if !isNavigationActive {
+        if !isNavigationActive && !isSilentLocalization {
           NavigationAudioService.shared.playLocalizationAudio(.failed)
           // Don't show photo preview automatically
         }
@@ -432,7 +462,7 @@ class StreamSessionViewModel: ObservableObject {
       isLocalizing = false
       localizationStatus = .error
       localizationResult = nil
-      if !isNavigationActive {
+      if !isNavigationActive && !isSilentLocalization {
         NavigationAudioService.shared.playLocalizationAudio(.failed)
         showError("Localization failed: \(error.localizedDescription)")
       }
