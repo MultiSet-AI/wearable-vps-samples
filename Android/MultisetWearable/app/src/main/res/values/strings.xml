@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2" project="cameraaccess">
+
+    <string name="app_name" description="App name">MultiSet Wearable</string>
+
+    <!-- Meta DAT Configuration -->
+    <string name="dat_application_id" translatable="false">782686398165423</string>
+    <!-- Client token from Wearables Developer Center. Leave empty when using Developer Mode. -->
+    <string name="dat_client_token" translatable="false"></string>
+
+    <!-- Home Screen -->
+    <string name="register_button_title" description="Connect App">Connect my glasses</string>
+    <string name="unregister_button_title" description="Disconnect App">Disconnect</string>
+    <string name="update_firmware_button_title" description="Open firmware update">Update firmware</string>
+    <string name="update_dat_app_button_title" description="Open DAT app update on glasses">Update app on glasses</string>
+    <string name="stream_button_title" description="Start streaming">Start streaming</string>
+    <string name="stop_stream_button_title" description="Stop streaming">Stop streaming</string>
+    <string name="home_tip_video_title" description="Tip title about video capture">Video Capture</string>
+    <string name="home_tip_audio_title" description="Tip title about audio">Open-Ear Audio</string>
+    <string name="home_tip_hands_title" description="Tip title about hands free">Enjoy On-the-Go</string>
+    <string name="home_tip_video" description="Tip about video capture">Record videos directly from your glasses, from your point of view.</string>
+    <string name="home_tip_audio" description="Tip about audio">Hear notifications while keeping your ears open to the world around you.</string>
+    <string name="home_tip_hands" description="Tip about hands free">Stay hands-free while you move through your day. Move freely, stay connected.</string>
+    <string name="home_redirect_message" description="Redirect message">You\'ll be redirected to the Meta AI app to confirm your connection.</string>
+
+    <!-- Stream Screen -->
+    <string name="live_stream" description="Live Stream">Live stream</string>
+
+    <!-- Non Stream Screen -->
+    <string name="camera_access_icon_description" description="Camera Access icon description">Camera Access icon</string>
+    <string name="non_stream_screen_description" description="Non stream screen description">Tap the Start streaming button to stream video from your glasses or use the camera button to take a photo from your glasses.</string>
+    <string name="non_stream_screen_title" description="Non stream screen title">Stream Your Glasses Camera</string>
+    <string name="waiting_for_active_device" description="Waiting for active device message">Waiting for an active device</string>
+    <string name="update_required_title" description="Update required warning title">Update required</string>
+    <string name="update_required_firmware_message" description="Firmware update required warning">Your glasses firmware needs an update before localization can start.</string>
+    <string name="update_required_dat_app_message" description="DAT app update required warning">The app on your glasses needs an update before localization can start.</string>
+    <string name="update_required_both_message" description="Firmware and DAT app update required warning">Your glasses firmware and app need updates before localization can start.</string>
+
+    <!-- Timer -->
+    <string name="unlimited_time" description="Unlimited Time">Unlimited Time</string>
+    <string name="one_minute" description="1 Minute Timer">1m</string>
+    <string name="five_minute" description="5 Minute Timer">5m</string>
+    <string name="ten_minute" description="10 Minute Timer">10m</string>
+    <string name="fifteen_minute" description="15 Minute Timer">15m</string>
+    <string name="time_remaining" description="Time remaining in minutes and seconds">Time Remaining: <xliff:g id="minutes">%1$d</xliff:g>:<xliff:g id="seconds">%2$02d</xliff:g></string>
+
+    <!-- SharePhotoDialog -->
+    <string name="photo_captured" description="Photo Captured">Photo Captured</string>
+    <string name="captured_photo" description="Captured Photo">Captured Photo</string>
+    <string name="capture_photo" description="Capture Photo">Capture Photo</string>
+    <string name="share" description="Share">Share</string>
+
+    <!-- Getting Started Sheet -->
+    <string name="getting_started_title" description="Getting Started sheet title">Getting started</string>
+    <string name="getting_started_tip_permission" description="Tip about camera permission">First, Camera Access needs permission to use your glasses camera.</string>
+    <string name="getting_started_tip_led" description="Tip about capture LED">The capture LED lets others know when you\'re capturing content or going live.</string>
+    <string name="getting_started_tip_photo" description="Tip about photo capture">Capture photos by tapping the camera button.</string>
+    <string name="getting_started_continue" description="Continue button">Continue</string>
+</resources>

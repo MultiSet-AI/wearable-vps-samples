@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.CameraAccess" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorBackground">#000000</item>
+        <!-- Splash screen configuration for Android 12+ -->
+        <item name="android:windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+</resources>
