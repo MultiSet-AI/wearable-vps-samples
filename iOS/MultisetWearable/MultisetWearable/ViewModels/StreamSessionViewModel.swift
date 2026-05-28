@@ -60,7 +60,7 @@ class StreamSessionViewModel: ObservableObject {
   /// When true, suppresses audio feedback during localization (used by multiplayer re-localization)
   var isSilentLocalization: Bool = false
   /// When true, requests right-handed (ARKit) coordinates from the API instead of left-handed (Unity).
-  /// Multiplayer leaves this false so the host receives Unity-space poses directly.
+  /// Used by multiplayer to match the host device's coordinate system directly.
   var useRightHandedCoordinates: Bool = false
 
   // Navigation properties
@@ -75,10 +75,12 @@ class StreamSessionViewModel: ObservableObject {
   /// Minimum confidence threshold for accepting localization results (40%)
   private let minimumConfidenceThreshold: Float = 0.4
   private let speechManager = SpeechManager.shared
-  // DAT SDK flow: DeviceSession → addStream → StreamSession
+  // DAT SDK flow: DeviceSession → addStream → Stream
+  // In 0.7.0 the camera stream type was renamed StreamSession → Stream. We qualify
+  // it as MWDATCamera.Stream because SwiftUI/Foundation also expose a `Stream` type.
   private var deviceSession: DeviceSession?
-  private var streamSession: StreamSession?
-  private let streamSessionConfig: StreamSessionConfig
+  private var streamSession: MWDATCamera.Stream?
+  private let streamSessionConfig: StreamConfiguration
   // Listener tokens are used to manage DAT SDK event subscriptions
   private var stateListenerToken: AnyListenerToken?
   private var videoFrameListenerToken: AnyListenerToken?
@@ -93,13 +95,13 @@ class StreamSessionViewModel: ObservableObject {
     self.wearables = wearables
     // Let the SDK auto-select from available devices
     self.deviceSelector = AutoDeviceSelector(wearables: wearables)
-    self.streamSessionConfig = StreamSessionConfig(
+    self.streamSessionConfig = StreamConfiguration(
       videoCodec: VideoCodec.raw,
       resolution: StreamingResolution.medium,
       frameRate: 24)
 
     // Monitor device availability and pre-warm the device session so user-initiated
-    // streaming starts immediately. When a device disconnects we tear everything down
+    // streaming starts immediately. When a device disconnects we tear everything down.
     deviceMonitorTask = Task { @MainActor [weak self] in
       guard let self else { return }
       for await device in self.deviceSelector.activeDeviceStream() {
@@ -115,7 +117,7 @@ class StreamSessionViewModel: ObservableObject {
 
   /// Return a DeviceSession in `.started` state, creating one if needed and awaiting
   /// the state transition via `stateStream()`. Returns nil if creation or start fails.
-  ///`DeviceSession.stopped` is terminal — a stopped session cannot be
+  /// In 0.6.0, `DeviceSession.stopped` is terminal — a stopped session cannot be
   /// restarted, so we discard it and create a fresh one.
   private func getDeviceSession() async -> DeviceSession? {
     if let session = deviceSession, session.state == .started {
@@ -153,8 +155,6 @@ class StreamSessionViewModel: ObservableObject {
     return nil
   }
 
-  /// Watch the DeviceSession for the terminal `.stopped` state and clean up when
-  /// it fires so the next start() can create a fresh session.
   private func startDeviceStateObserver(for session: DeviceSession) {
     deviceStateObserverTask?.cancel()
     deviceStateObserverTask = Task { @MainActor [weak self] in
@@ -187,7 +187,7 @@ class StreamSessionViewModel: ObservableObject {
     photoDataListenerToken = nil
   }
 
-  private func setupStreamListeners(for stream: StreamSession) {
+  private func setupStreamListeners(for stream: MWDATCamera.Stream) {
     stateListenerToken = stream.statePublisher.listen { [weak self] state in
       Task { @MainActor [weak self] in
         self?.updateStatusFromState(state)
@@ -269,7 +269,7 @@ class StreamSessionViewModel: ObservableObject {
     remainingTime = 0
     stopTimer()
 
-    // the DeviceSession must reach `.started` before `addStream` will
+    // In 0.6.0, the DeviceSession must reach `.started` before `addStream` will
     // succeed. `getDeviceSession` handles creation + the state-stream await.
     guard let deviceSession = await getDeviceSession(), deviceSession.state == .started else {
       return
@@ -325,7 +325,7 @@ class StreamSessionViewModel: ObservableObject {
   }
 
   func capturePhoto() {
-    streamSession?.capturePhoto(format: .jpeg)
+    _ = streamSession?.capturePhoto(format: .jpeg)
   }
 
   func dismissPhotoPreview() {
@@ -361,7 +361,7 @@ class StreamSessionViewModel: ObservableObject {
     NavigationAudioService.shared.playLocalizationAudio(.localizing)
 
     // Capture photo - the listener will handle sending to API
-    streamSession?.capturePhoto(format: .jpeg)
+    _ = streamSession?.capturePhoto(format: .jpeg)
   }
 
   /// Trigger localization silently (no audio feedback).
@@ -383,7 +383,7 @@ class StreamSessionViewModel: ObservableObject {
     } else {
       // Fallback to photo capture if no video frame
       localizationStatus = .capturing
-      streamSession?.capturePhoto(format: .jpeg)
+      _ = streamSession?.capturePhoto(format: .jpeg)
     }
   }
 
@@ -458,6 +458,8 @@ class StreamSessionViewModel: ObservableObject {
       if isNavigationActive {
         scheduleNextLocalization()
       }
+
+      isSilentLocalization = false
     } catch {
       isLocalizing = false
       localizationStatus = .error
@@ -471,6 +473,8 @@ class StreamSessionViewModel: ObservableObject {
       if isNavigationActive {
         scheduleNextLocalization()
       }
+
+      isSilentLocalization = false
     }
   }
 
@@ -558,7 +562,7 @@ class StreamSessionViewModel: ObservableObject {
       // Fallback to photo capture if no video frame available
       isLocalizing = true
       localizationStatus = .capturing
-      streamSession?.capturePhoto(format: .jpeg)
+      _ = streamSession?.capturePhoto(format: .jpeg)
       return
     }
 
@@ -589,7 +593,7 @@ class StreamSessionViewModel: ObservableObject {
     timerTask = nil
   }
 
-  private func updateStatusFromState(_ state: StreamSessionState) {
+  private func updateStatusFromState(_ state: StreamState) {
     switch state {
     case .stopped:
       currentVideoFrame = nil
@@ -621,7 +625,7 @@ class StreamSessionViewModel: ObservableObject {
     return (jpegData, resized)
   }
 
-  private func formatStreamingError(_ error: StreamSessionError) -> String {
+  private func formatStreamingError(_ error: StreamError) -> String {
     switch error {
     case .internalError:
       return "An internal error occurred. Please try again."
@@ -639,6 +643,12 @@ class StreamSessionViewModel: ObservableObject {
       return "Glasses hinges are closed. Please open them to continue."
     case .thermalCritical:
       return "Device temperature is too high. Please wait for it to cool down."
+    case .thermalEmergency:
+      return "Device temperature reached an emergency level. Streaming stopped — please let it cool down."
+    case .peakPowerShutdown:
+      return "The device shut down due to a power spike. Please try again."
+    case .batteryCritical:
+      return "Device battery is critically low. Please charge it and try again."
     @unknown default:
       return "An unknown streaming error occurred."
     }
