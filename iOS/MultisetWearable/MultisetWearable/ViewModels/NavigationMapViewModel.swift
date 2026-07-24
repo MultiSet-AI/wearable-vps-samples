@@ -8,7 +8,6 @@ Redistribution in source or binary forms must retain this notice.
 import SwiftUI
 import Combine
 
-/// ViewModel for managing 2D navigation map state and data binding
 @MainActor
 class NavigationMapViewModel: ObservableObject {
 
@@ -76,7 +75,7 @@ class NavigationMapViewModel: ObservableObject {
     // MARK: - Services
 
     private let dataService = NavigationDataService.shared
-    private let navigationService = AudioNavigationService.shared
+    private let navigationService: any NavigationRouteSource
 
     // MARK: - Combine
 
@@ -91,7 +90,8 @@ class NavigationMapViewModel: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {
+    init(routeSource: any NavigationRouteSource = AudioNavigationService.shared) {
+        self.navigationService = routeSource
         loadMapData()
         observeNavigationState()
     }
@@ -256,7 +256,7 @@ class NavigationMapViewModel: ObservableObject {
 
     private func observeNavigationState() {
         // Observe navigation active state
-        navigationService.$isNavigating
+        navigationService.isNavigatingPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isNavigating in
                 guard let self = self else { return }
@@ -277,17 +277,17 @@ class NavigationMapViewModel: ObservableObject {
             .store(in: &cancellables)
 
         // Observe current destination
-        navigationService.$currentDestination
+        navigationService.currentDestinationPublisher
             .receive(on: DispatchQueue.main)
             .assign(to: &$destinationPOI)
 
         // Observe waypoint progress
-        navigationService.$currentWaypointIndex
+        navigationService.currentWaypointIndexPublisher
             .receive(on: DispatchQueue.main)
             .assign(to: &$currentWaypointIndex)
 
         // Observe navigation path
-        navigationService.$currentNavigationPath
+        navigationService.currentNavigationPathPublisher
             .receive(on: DispatchQueue.main)
             .assign(to: &$activePath)
     }

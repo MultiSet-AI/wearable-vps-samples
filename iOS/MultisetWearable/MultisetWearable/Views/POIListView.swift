@@ -8,8 +8,8 @@ Redistribution in source or binary forms must retain this notice.
 import SwiftUI
 
 /// Slide-up panel showing available Points of Interest for navigation
-struct POIListView: View {
-    @ObservedObject var navigationService: AudioNavigationService
+struct POIListView<Nav: NavigationServiceProviding>: View {
+    @ObservedObject var navigationService: Nav
     @Binding var isPresented: Bool
     let isLocalized: Bool
     let userPosition: NavPosition?

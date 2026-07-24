@@ -39,6 +39,8 @@
 		<string>cameraaccess://</string>
 		<key>ClientToken</key>
 		<string>$(CLIENT_TOKEN)</string>
+		<key>DAMEnabled</key>
+		<true/>
 		<key>MetaAppID</key>
 		<string>$(META_APP_ID)</string>
 		<key>TeamID</key>

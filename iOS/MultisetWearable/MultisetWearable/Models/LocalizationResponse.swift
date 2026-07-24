@@ -99,9 +99,10 @@ struct Rotation: Codable {
         String(format: "(%.2f, %.2f, %.2f, %.2f)", x, y, z, w)
     }
 
-    /// Legacy conversion (no longer needed since isRightHanded=false)
-    /// API now returns left-handed coordinates directly matching Unity
+    /// Identity mapping: the VPS API already returns rotations in Unity's
+    /// left-handed frame (requests set isRightHanded=false), so no conversion is
+    /// applied — kept as a named seam for any future right-handed path.
     var toUnityLeftHanded: Rotation {
-        self  // No conversion needed
+        self
     }
 }

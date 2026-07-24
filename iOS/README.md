@@ -1,6 +1,6 @@
 # MultiSet VPS for Wearables
 
-A sample iOS application demonstrating Visual Positioning System (VPS) integration with Meta Ray-Ban Smart Glasses. This app showcases localization, turn-by-turn navigation, and multiplayer pose sharing using the MultiSet VPS API and the Meta Wearables Device Access Toolkit (DAT SDK).
+A sample iOS application demonstrating Visual Positioning System (VPS) integration with Meta Ray-Ban Smart Glasses. This app showcases localization, turn-by-turn navigation (audio-guided and rendered on the Ray-Ban Display HUD), and multiplayer pose sharing using the MultiSet VPS API and the Meta Wearables Device Access Toolkit (DAT SDK).
 
 ## Features
 
@@ -8,6 +8,7 @@ A sample iOS application demonstrating Visual Positioning System (VPS) integrati
 - **Live Video Streaming**: Real-time camera feed from the glasses
 - **VPS Localization**: Capture images and get precise 6-DOF position and orientation
 - **Navigation**: Turn-by-turn audio guidance to Points of Interest (POIs)
+- **Display Navigation**: Turn-by-turn navigation rendered on the Ray-Ban **Display** glasses HUD (requires Display-capable glasses)
 - **Multiplayer Demo**: Act as a client that joins a host running the MultiSet iOS SDK and streams its localized pose for real-time shared-space experiences
 - **Audio Feedback**: Navigation instructions played through the glasses speakers
 - **Optimized Streaming & Localization**: Session pre-warming, on-device image downscaling, video-frame fast path, and confidence-gated retries for low end-to-end latency
@@ -19,10 +20,11 @@ A sample iOS application demonstrating Visual Positioning System (VPS) integrati
 - Swift 5.0+
 - Meta Ray-Ban Smart Glasses (with the latest firmware)
 - Meta AI App with Developer Mode enabled
-- Meta Wearables DAT SDK 0.6.0 (resolved automatically via Swift Package Manager)
+- Meta Wearables DAT SDK 0.8.0 (resolved automatically via Swift Package Manager)
 - MultiSet VPS API credentials (Client ID and Client Secret)
 - A mapped environment with navigation data
 - (Multiplayer only) A second device running the MultiSet iOS SDK multiplayer host, on the same local network as the iPhone running this app
+- (Display Navigation only) Ray-Ban **Display** glasses — the on-lens HUD requires Display-capable hardware
 
 ---
 
@@ -248,6 +250,38 @@ User Localizes → Selects POI → Path Calculated → Navigation Starts
 3. Tap **"Select Destination"** to view available POIs
 4. Select a POI from the list
 5. Navigation begins with audio instructions
+
+---
+
+## Display Navigation
+
+Display Navigation renders the same turn-by-turn guidance on the **Ray-Ban Display** glasses' on-lens HUD instead of relying only on phone audio. The direction arrow, remaining distance, next-turn instruction, progress, and a Stop button are drawn directly on the display using the DAT SDK's `MWDATDisplay` layout DSL.
+
+### Requirements
+
+- **Ray-Ban Display glasses.** This feature needs Display-capable hardware; standard Ray-Ban Meta glasses can run the other three features but not this one.
+- **`DAMEnabled` in `Info.plist`.** The Display HUD requires the `MWDAT` dictionary to contain `DAMEnabled = true`:
+
+  ```xml
+  <key>MWDAT</key>
+  <dict>
+      <!-- ...existing MWDAT keys... -->
+      <key>DAMEnabled</key>
+      <true/>
+  </dict>
+  ```
+
+### How It Works
+
+- **One session, shared.** The glasses allow only one `DeviceSession`, so the HUD's `Display` capability attaches to the same session the camera stream uses — the app never opens a second session.
+- **Localization.** Position updates use the same video-frame fast path as audio navigation (no Bluetooth photo round-trip).
+- **HUD refresh.** Every image sent to the glasses shares the Bluetooth link with the video stream, so HUD sends are throttled and the live HUD is built from lightweight default components (no bitmaps) while the camera is streaming.
+
+### Running the Demo
+
+1. Pair Display-capable Ray-Ban glasses and confirm `DAMEnabled = true` in `Info.plist`.
+2. Launch MultiSet Wearable and pick **"Display Navigation"** from the feature selection screen.
+3. Follow the on-lens prompts: **Localize**, pick a destination, then follow the turn-by-turn HUD to arrival.
 
 ---
 

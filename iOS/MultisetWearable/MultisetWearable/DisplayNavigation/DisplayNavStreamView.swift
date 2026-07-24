@@ -5,25 +5,19 @@ For license details, visit www.multiset.ai.
 Redistribution in source or binary forms must retain this notice.
 */
 
-//
-// StreamView.swift
-//
-// Main UI for video streaming from Meta wearable devices using the DAT SDK.
-// This view demonstrates the complete streaming API: video streaming with real-time display, photo capture,
-// and error handling.
-//
-
 import MWDATCore
 import SwiftUI
 
-struct StreamView: View {
-  @ObservedObject var viewModel: StreamSessionViewModel
-  @ObservedObject var wearablesVM: WearablesViewModel
+struct DisplayNavStreamView: View {
+  @Bindable var viewModel: DisplayNavStreamSessionViewModel
+  var wearablesVM: WearablesViewModel
+  @ObservedObject var controller: LocalizationController
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-  @StateObject private var mapViewModel = NavigationMapViewModel()
+  @StateObject private var mapViewModel = NavigationMapViewModel(routeSource: DisplayNavRouteEngine.shared)
   @State private var showSettings = false
   @State private var showStopConfirmation = false
   @State private var showFullScreenMap = false
+  @State private var showLocalizationInfo = false
 
   /// Optional dismiss callback for when launched from FeatureSelectionView
   var onDismiss: (() -> Void)?
@@ -64,14 +58,14 @@ struct StreamView: View {
       VStack {
         HStack {
           // Localization info button (shows when localized)
-          if viewModel.localizationStatus == .success {
+          if controller.localizationStatus == .success {
             Button {
-              viewModel.showPhotoPreview = true
+              showLocalizationInfo = true
             } label: {
               HStack(spacing: 6) {
                 Image(systemName: "checkmark.circle.fill")
                   .font(.system(size: 16))
-                if let distance = viewModel.localizationResult?.posePosition?.distanceFromOrigin {
+                if let distance = controller.localizationResult?.posePosition?.distanceFromOrigin {
                   Text(String(format: "Origin: %.1f m", distance))
                     .font(.system(size: 14, weight: .medium))
                 }
@@ -115,12 +109,12 @@ struct StreamView: View {
       .padding(.all, 16)
 
       // Navigation status (when navigating)
-      if viewModel.isNavigationActive {
+      if controller.isNavigationActive {
         VStack {
           NavigationStatusView(
-            navigationService: viewModel.navigationService,
+            navigationService: controller.navigationService,
             onStopNavigation: {
-              viewModel.stopNavigation()
+              controller.stopNavigation()
             }
           )
           Spacer()
@@ -130,72 +124,78 @@ struct StreamView: View {
       }
 
       // Navigation map overlay (shown after successful localization or during navigation)
-      if viewModel.localizationStatus == .success || viewModel.isNavigationActive {
+      if controller.localizationStatus == .success || controller.isNavigationActive {
         VStack {
           Spacer()
-          NavigationMapView(
-            streamViewModel: viewModel,
+          DisplayNavMapView(
+            controller: controller,
             onStartNavigation: { poiId in
-              viewModel.startNavigation(to: poiId)
+              controller.startNavigation(to: poiId)
             },
             onStopNavigation: {
-              viewModel.stopNavigation()
+              controller.stopNavigation()
             }
           )
             .padding(.horizontal, mapHorizontalPadding)
             .padding(.bottom, mapBottomPadding) // Position above bottom controls
         }
         .transition(.opacity.combined(with: .move(edge: .bottom)))
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.localizationStatus)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: controller.localizationStatus)
       }
 
       // Bottom controls layer
       VStack {
         Spacer()
-        ControlsView(
+        DisplayNavControlsView(
           viewModel: viewModel,
+          controller: controller,
           showStopConfirmation: $showStopConfirmation,
           onShowPOIList: {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-              viewModel.showPOIList = true
+              controller.showPOIList = true
             }
           }
         )
       }
       .padding(.all, 24)
 
-      // Timer display area with fixed height
-      VStack {
-        Spacer()
-        if viewModel.activeTimeLimit.isTimeLimited && viewModel.remainingTime > 0 {
-          Text("Streaming ending in \(viewModel.remainingTime.formattedCountdown)")
-            .font(.system(size: 15))
-            .foregroundColor(.white)
-        }
-      }
-
       // POI List overlay
-      if viewModel.showPOIList {
+      if controller.showPOIList {
         POIListView(
-          navigationService: viewModel.navigationService,
-          isPresented: $viewModel.showPOIList,
-          isLocalized: viewModel.localizationStatus == .success,
-          userPosition: viewModel.currentUserPosition,
+          navigationService: controller.navigationService,
+          isPresented: $controller.showPOIList,
+          isLocalized: controller.localizationStatus == .success,
+          userPosition: controller.currentUserPosition,
           onSelectPOI: { poiId in
-            viewModel.startNavigation(to: poiId)
+            controller.startNavigation(to: poiId)
           }
         )
         .transition(.move(edge: .bottom).combined(with: .opacity))
       }
     }
+    // No `.onDisappear` stop here: presenting the full-screen map (fullScreenCover)
+    // fires onDisappear on this view while streaming should continue. The stream is
+    // stopped explicitly via the close confirmation and on feature dismiss.
+    // Captured photos from the DAT SDK (camera button / glasses HUD)
     .sheet(isPresented: $viewModel.showPhotoPreview) {
       if let photo = viewModel.capturedPhoto {
         PhotoPreviewView(
           photo: photo,
-          localizationResult: viewModel.localizationResult,
-          localizationStatus: viewModel.localizationStatus,
           onDismiss: {
             viewModel.dismissPhotoPreview()
+          }
+        )
+      }
+    }
+    // Localization details (info badge)
+    .sheet(isPresented: $showLocalizationInfo) {
+      if let frame = controller.queriedFrame {
+        PhotoPreviewView(
+          photo: frame,
+          localizationResult: controller.localizationResult,
+          localizationStatus: controller.localizationStatus,
+          onDismiss: {
+            showLocalizationInfo = false
           }
         )
       }
@@ -209,30 +209,28 @@ struct StreamView: View {
       FullScreenMapView(
         viewModel: mapViewModel,
         onStartNavigation: { poiId in
-          viewModel.startNavigation(to: poiId)
+          controller.startNavigation(to: poiId)
         },
         onStopNavigation: {
-          viewModel.stopNavigation()
+          controller.stopNavigation()
         },
-        navigationService: viewModel.navigationService,
-        isLocalized: viewModel.localizationStatus == .success
+        navigationService: nil,
+        isLocalized: controller.localizationStatus == .success
       )
     }
-    .onReceive(viewModel.$localizationResult) { result in
+    .onReceive(controller.$localizationResult) { result in
       mapViewModel.updateFromLocalizationResult(result)
     }
     // Stop confirmation alert
     .alert("Close Navigation?", isPresented: $showStopConfirmation) {
       Button("Cancel", role: .cancel) { }
       Button("Close", role: .destructive) {
-        Task {
-          if viewModel.isNavigationActive {
-            viewModel.stopNavigation()
-          }
-          await viewModel.stopSession()
-          // Dismiss back to feature selection if launched from there
-          onDismiss?()
+        if controller.isNavigationActive {
+          controller.stopNavigation()
         }
+        viewModel.stopSession()
+        // Dismiss back to feature selection if launched from there
+        onDismiss?()
       }
     } message: {
       Text("This will stop the camera stream and end any active navigation.")
@@ -241,19 +239,20 @@ struct StreamView: View {
 }
 
 // Extracted controls for clarity
-struct ControlsView: View {
-  @ObservedObject var viewModel: StreamSessionViewModel
+struct DisplayNavControlsView: View {
+  var viewModel: DisplayNavStreamSessionViewModel
+  @ObservedObject var controller: LocalizationController
   @Binding var showStopConfirmation: Bool
   let onShowPOIList: () -> Void
 
   var body: some View {
     VStack(spacing: 16) {
       // Direction guidance icon (shown during navigation)
-      if viewModel.isNavigationActive {
-        DirectionGuidanceIcon(navigationService: viewModel.navigationService)
+      if controller.isNavigationActive {
+        DisplayNavDirectionGuidanceIcon(navigationService: controller.navigationService)
       }
 
-      // Controls row with capture button centered
+      // Controls row with the localize button centered
       HStack {
         // Stop button (left)
         Button {
@@ -270,8 +269,8 @@ struct ControlsView: View {
 
         Spacer()
 
-        // Capture/Localize button (center)
-        LocalizeButton(viewModel: viewModel)
+        // Localize button (center)
+        DisplayNavLocalizeButton(controller: controller)
 
         Spacer()
 
@@ -279,51 +278,51 @@ struct ControlsView: View {
         Button {
           onShowPOIList()
         } label: {
-          Image(systemName: viewModel.isNavigationActive ? "location.fill" : "mappin.circle.fill")
+          Image(systemName: controller.isNavigationActive ? "location.fill" : "mappin.circle.fill")
             .font(.system(size: 22))
             .foregroundColor(.white)
             .frame(width: 50, height: 50)
-            .background(viewModel.isNavigationActive ? AppColors.accentGreen.opacity(0.8) : Color.white.opacity(0.25))
+            .background(controller.isNavigationActive ? AppColors.accentGreen.opacity(0.8) : Color.white.opacity(0.25))
             .clipShape(Circle())
             .shadow(color: .black.opacity(0.4), radius: 6, x: 0, y: 3)
         }
       }
-      .padding(.horizontal, 40)
+      .padding(.horizontal, 24)
     }
   }
 }
 
 // Localization button with loading state
-struct LocalizeButton: View {
-  @ObservedObject var viewModel: StreamSessionViewModel
+struct DisplayNavLocalizeButton: View {
+  @ObservedObject var controller: LocalizationController
 
   var body: some View {
     Button {
-      viewModel.localize()
+      controller.localize()
     } label: {
       ZStack {
         Image("localization_button")
           .resizable()
           .aspectRatio(contentMode: .fit)
           .frame(width: 72, height: 72)
-          .opacity(viewModel.isLocalizing ? 0.6 : 1.0)
+          .opacity(controller.isLocalizing ? 0.6 : 1.0)
 
-        if viewModel.isLocalizing {
+        if controller.isLocalizing {
           ProgressView()
             .progressViewStyle(CircularProgressViewStyle(tint: .white))
             .scaleEffect(1.2)
         }
       }
     }
-    .disabled(viewModel.isLocalizing)
-    .scaleEffect(viewModel.isLocalizing ? 0.95 : 1.0)
-    .animation(.easeInOut(duration: 0.15), value: viewModel.isLocalizing)
+    .disabled(controller.isLocalizing)
+    .scaleEffect(controller.isLocalizing ? 0.95 : 1.0)
+    .animation(.easeInOut(duration: 0.15), value: controller.isLocalizing)
   }
 }
 
 // Direction guidance icon shown above localize button during navigation
-struct DirectionGuidanceIcon: View {
-  @ObservedObject var navigationService: AudioNavigationService
+struct DisplayNavDirectionGuidanceIcon: View {
+  @ObservedObject var navigationService: DisplayNavRouteEngine
   @State private var animateIcon: Bool = false
   @State private var lastInstruction: NavigationInstruction?
 

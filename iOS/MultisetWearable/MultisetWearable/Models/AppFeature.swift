@@ -11,6 +11,7 @@ import SwiftUI
 enum AppFeature: String, CaseIterable, Identifiable {
     case localization = "Localization Demo"
     case navigation = "Navigation Demo"
+    case displayNavigation = "Display Navigation"
     case multiplayer = "Multiplayer Demo"
 
     var id: String { rawValue }
@@ -22,6 +23,8 @@ enum AppFeature: String, CaseIterable, Identifiable {
             return "Localization Demo"
         case .navigation:
             return "Navigation Demo"
+        case .displayNavigation:
+            return "Display Navigation"
         case .multiplayer:
             return "Multiplayer Demo"
         }
@@ -34,6 +37,8 @@ enum AppFeature: String, CaseIterable, Identifiable {
             return "Capture images and test positioning with real-time pose data"
         case .navigation:
             return "Full navigation with audio-guided turn-by-turn directions"
+        case .displayNavigation:
+            return "Turn-by-turn navigation rendered on the Ray-Ban Display glasses HUD"
         case .multiplayer:
             return "Share your pose with a nearby host so others can see your position"
         }
@@ -46,6 +51,8 @@ enum AppFeature: String, CaseIterable, Identifiable {
             return "location.viewfinder"
         case .navigation:
             return "point.topleft.down.to.point.bottomright.curvepath.fill"
+        case .displayNavigation:
+            return "eyeglasses"
         case .multiplayer:
             return "person.2.fill"
         }
@@ -58,6 +65,8 @@ enum AppFeature: String, CaseIterable, Identifiable {
             return AppColors.accentBlue
         case .navigation:
             return AppColors.accentGreen
+        case .displayNavigation:
+            return AppColors.yellow
         case .multiplayer:
             return AppColors.accentPurple
         }

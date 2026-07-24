@@ -13,6 +13,7 @@ import SwiftUI
 struct LocalizationDemoView: View {
     let wearables: WearablesInterface
     @ObservedObject var wearablesVM: WearablesViewModel
+    let deviceSessionManager: DeviceSessionManager
     let onDismiss: () -> Void
 
     @StateObject private var viewModel: StreamSessionViewModel
@@ -36,11 +37,17 @@ struct LocalizationDemoView: View {
         horizontalSizeClass == .regular ? 40 : 16
     }
 
-    init(wearables: WearablesInterface, wearablesVM: WearablesViewModel, onDismiss: @escaping () -> Void) {
+    init(
+        wearables: WearablesInterface,
+        wearablesVM: WearablesViewModel,
+        deviceSessionManager: DeviceSessionManager,
+        onDismiss: @escaping () -> Void
+    ) {
         self.wearables = wearables
         self.wearablesVM = wearablesVM
+        self.deviceSessionManager = deviceSessionManager
         self.onDismiss = onDismiss
-        _viewModel = StateObject(wrappedValue: StreamSessionViewModel(wearables: wearables))
+        _viewModel = StateObject(wrappedValue: StreamSessionViewModel(wearables: wearables, sessionManager: deviceSessionManager))
     }
 
     var body: some View {

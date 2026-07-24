@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		016B7FD4EC9DE8DCF3423234 /* NavigationServiceProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F9EF600889DCEBD2DD86E7A /* NavigationServiceProviding.swift */; };
+		3A780460F879809F536854C1 /* DisplayNavRouteEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C698702AD05B27BE6392BCA /* DisplayNavRouteEngine.swift */; };
+		3F221D448ECB508A0D1EC13D /* DisplayNavStreamSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310280381FD68A9034FAA776 /* DisplayNavStreamSessionViewModel.swift */; };
+		44F19D1F414658D01C5BFC76 /* NavigationHUDBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F81EC4841CF28C26005E22C /* NavigationHUDBuilder.swift */; };
+		488CC2983C7A47C182CDF503 /* MWDATDisplay in Frameworks */ = {isa = PBXBuildFile; productRef = B26B0F009DAC1D1B201ED54C /* MWDATDisplay */; };
+		527B59F53013C7BA009DAF51 /* MAP_PXVZ3N6BZYYO_navigation_data.json in Resources */ = {isa = PBXBuildFile; fileRef = 527B59F43013C7BA009DAF51 /* MAP_PXVZ3N6BZYYO_navigation_data.json */; };
 		529E041F2F83C011000A4DAB /* MAP_QTTSRGRYP7HR_navigation_data.json in Resources */ = {isa = PBXBuildFile; fileRef = 529E041E2F83C011000A4DAB /* MAP_QTTSRGRYP7HR_navigation_data.json */; };
 		52DA84522F3AF07B008F37EC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 52DA84512F3AF07B008F37EC /* Assets.xcassets */; };
 		52DA84632F3AF0A6008F37EC /* slight_right.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 52DA845C2F3AF0A6008F37EC /* slight_right.mp3 */; };
@@ -63,9 +69,19 @@
 		52DA84E32F3AF741008F37EC /* NetworkModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA84E02F3AF741008F37EC /* NetworkModels.swift */; };
 		52DA84E42F3AF741008F37EC /* MultipeerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA84E12F3AF741008F37EC /* MultipeerManager.swift */; };
 		52DA84E52F3AF741008F37EC /* MultiplayerDemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA84E22F3AF741008F37EC /* MultiplayerDemoView.swift */; };
+		53FFCEF945F9C23A6092E8FE /* NavigationDestinationsBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88CCA27C9B5BE660517BCAF9 /* NavigationDestinationsBuilder.swift */; };
+		8EA885A9BC9F86E15CB5E257 /* DisplayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03270408C515E0442CCC5A80 /* DisplayViewModel.swift */; };
 		8FD96B7F2E6F0A9800F56AB1 /* MultisetWearableApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD96B792E6F0A9800F56AB1 /* MultisetWearableApp.swift */; };
 		8FD96B952E6F0F7D00F56AB1 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8FD96B942E6F0F7D00F56AB1 /* MWDATCore */; };
 		8FD96B952E6F0F7D00F56AB2 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = 8FD96B942E6F0F7D00F56AB2 /* MWDATCamera */; };
+		928F0556A9162AB0988110F3 /* DisplayNavMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E66021882F96130A62154B8 /* DisplayNavMapView.swift */; };
+		9438CCFA0C1503D3E105C1BC /* LocalizationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C23C253406F23041F89C134 /* LocalizationController.swift */; };
+		B067C0801A702E40CA8A453E /* DisplayNavNonStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E457E997213411E750E20FA /* DisplayNavNonStreamView.swift */; };
+		BE2727E04CE0E1BEAFFF6B13 /* DisplayNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 982A5A37115B94459B1EFCB5 /* DisplayNavigationView.swift */; };
+		C0182AB694D959D3E1D68875 /* NavigationRouteSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9755653446E38CEE5A9E0F0A /* NavigationRouteSource.swift */; };
+		E40548A794029AB760E4B1BA /* DisplayNavContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF7B567021897F5418463FF /* DisplayNavContentView.swift */; };
+		ECB1513595ECCA5EDD1489D2 /* DisplayNavStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F78BE78DCB2834F62F694344 /* DisplayNavStreamView.swift */; };
+		F3BC9269241722C2D432B6D9 /* DeviceSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B32F823048C02D83984F8F5 /* DeviceSessionManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -82,7 +98,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		03270408C515E0442CCC5A80 /* DisplayViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DisplayViewModel.swift; sourceTree = "<group>"; };
+		0B32F823048C02D83984F8F5 /* DeviceSessionManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceSessionManager.swift; sourceTree = "<group>"; };
+		0F9EF600889DCEBD2DD86E7A /* NavigationServiceProviding.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationServiceProviding.swift; sourceTree = "<group>"; };
+		1C23C253406F23041F89C134 /* LocalizationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalizationController.swift; sourceTree = "<group>"; };
+		2C698702AD05B27BE6392BCA /* DisplayNavRouteEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DisplayNavRouteEngine.swift; sourceTree = "<group>"; };
+		310280381FD68A9034FAA776 /* DisplayNavStreamSessionViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DisplayNavStreamSessionViewModel.swift; sourceTree = "<group>"; };
 		3A3A3A3A3A3A3A3A3A3A3A3A /* MultisetWearable.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MultisetWearable.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3F81EC4841CF28C26005E22C /* NavigationHUDBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationHUDBuilder.swift; sourceTree = "<group>"; };
+		527B59F43013C7BA009DAF51 /* MAP_PXVZ3N6BZYYO_navigation_data.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MAP_PXVZ3N6BZYYO_navigation_data.json; sourceTree = "<group>"; };
 		529E041E2F83C011000A4DAB /* MAP_QTTSRGRYP7HR_navigation_data.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MAP_QTTSRGRYP7HR_navigation_data.json; sourceTree = "<group>"; };
 		52DA84512F3AF07B008F37EC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		52DA84532F3AF0A6008F37EC /* turn_around.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = turn_around.mp3; sourceTree = "<group>"; };
@@ -139,9 +163,16 @@
 		52DA84E02F3AF741008F37EC /* NetworkModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkModels.swift; sourceTree = "<group>"; };
 		52DA84E12F3AF741008F37EC /* MultipeerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultipeerManager.swift; sourceTree = "<group>"; };
 		52DA84E22F3AF741008F37EC /* MultiplayerDemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerDemoView.swift; sourceTree = "<group>"; };
+		6E457E997213411E750E20FA /* DisplayNavNonStreamView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DisplayNavNonStreamView.swift; sourceTree = "<group>"; };
+		88CCA27C9B5BE660517BCAF9 /* NavigationDestinationsBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationDestinationsBuilder.swift; sourceTree = "<group>"; };
 		8FD96B782E6F0A9800F56AB1 /* MultisetWearable.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MultisetWearable.entitlements; sourceTree = "<group>"; };
 		8FD96B792E6F0A9800F56AB1 /* MultisetWearableApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultisetWearableApp.swift; sourceTree = "<group>"; };
 		8FD96B7B2E6F0A9800F56AB1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9755653446E38CEE5A9E0F0A /* NavigationRouteSource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationRouteSource.swift; sourceTree = "<group>"; };
+		982A5A37115B94459B1EFCB5 /* DisplayNavigationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DisplayNavigationView.swift; sourceTree = "<group>"; };
+		9E66021882F96130A62154B8 /* DisplayNavMapView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DisplayNavMapView.swift; sourceTree = "<group>"; };
+		DBF7B567021897F5418463FF /* DisplayNavContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DisplayNavContentView.swift; sourceTree = "<group>"; };
+		F78BE78DCB2834F62F694344 /* DisplayNavStreamView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DisplayNavStreamView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,6 +182,7 @@
 			files = (
 				8FD96B952E6F0F7D00F56AB1 /* MWDATCore in Frameworks */,
 				8FD96B952E6F0F7D00F56AB2 /* MWDATCamera in Frameworks */,
+				488CC2983C7A47C182CDF503 /* MWDATDisplay in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -179,6 +211,7 @@
 		52DA84612F3AF0A6008F37EC /* NavigationData */ = {
 			isa = PBXGroup;
 			children = (
+				527B59F43013C7BA009DAF51 /* MAP_PXVZ3N6BZYYO_navigation_data.json */,
 				529E041E2F83C011000A4DAB /* MAP_QTTSRGRYP7HR_navigation_data.json */,
 			);
 			path = NavigationData;
@@ -236,6 +269,7 @@
 				52DA84992F3AF741008F37EC /* NavigationMapViewModel.swift */,
 				52DA849A2F3AF741008F37EC /* StreamSessionViewModel.swift */,
 				52DA849B2F3AF741008F37EC /* WearablesViewModel.swift */,
+				0B32F823048C02D83984F8F5 /* DeviceSessionManager.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -315,8 +349,29 @@
 				8FD96B782E6F0A9800F56AB1 /* MultisetWearable.entitlements */,
 				8FD96B792E6F0A9800F56AB1 /* MultisetWearableApp.swift */,
 				8FD96B7B2E6F0A9800F56AB1 /* Info.plist */,
+				FCDCF9DE4590840D4B6F23AC /* DisplayNavigation */,
 			);
 			path = MultisetWearable;
+			sourceTree = "<group>";
+		};
+		FCDCF9DE4590840D4B6F23AC /* DisplayNavigation */ = {
+			isa = PBXGroup;
+			children = (
+				982A5A37115B94459B1EFCB5 /* DisplayNavigationView.swift */,
+				DBF7B567021897F5418463FF /* DisplayNavContentView.swift */,
+				F78BE78DCB2834F62F694344 /* DisplayNavStreamView.swift */,
+				6E457E997213411E750E20FA /* DisplayNavNonStreamView.swift */,
+				9E66021882F96130A62154B8 /* DisplayNavMapView.swift */,
+				310280381FD68A9034FAA776 /* DisplayNavStreamSessionViewModel.swift */,
+				03270408C515E0442CCC5A80 /* DisplayViewModel.swift */,
+				2C698702AD05B27BE6392BCA /* DisplayNavRouteEngine.swift */,
+				1C23C253406F23041F89C134 /* LocalizationController.swift */,
+				3F81EC4841CF28C26005E22C /* NavigationHUDBuilder.swift */,
+				88CCA27C9B5BE660517BCAF9 /* NavigationDestinationsBuilder.swift */,
+				0F9EF600889DCEBD2DD86E7A /* NavigationServiceProviding.swift */,
+				9755653446E38CEE5A9E0F0A /* NavigationRouteSource.swift */,
+			);
+			path = DisplayNavigation;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -336,6 +391,9 @@
 			dependencies = (
 			);
 			name = MultisetWearable;
+			packageProductDependencies = (
+				B26B0F009DAC1D1B201ED54C /* MWDATDisplay */,
+			);
 			productName = MultisetWearable;
 			productReference = 3A3A3A3A3A3A3A3A3A3A3A3A /* MultisetWearable.app */;
 			productType = "com.apple.product-type.application";
@@ -390,6 +448,7 @@
 				529E041F2F83C011000A4DAB /* MAP_QTTSRGRYP7HR_navigation_data.json in Resources */,
 				52DA846A2F3AF0A6008F37EC /* recalculating.mp3 in Resources */,
 				52DA846B2F3AF0A6008F37EC /* turn_left.mp3 in Resources */,
+				527B59F53013C7BA009DAF51 /* MAP_PXVZ3N6BZYYO_navigation_data.json in Resources */,
 				52DA846C2F3AF0A6008F37EC /* localization_successful.mp3 in Resources */,
 				52DA846E2F3AF0A6008F37EC /* destination_reached.mp3 in Resources */,
 				52DA846F2F3AF0A6008F37EC /* navigation_started.mp3 in Resources */,
@@ -447,6 +506,20 @@
 				52DA84E32F3AF741008F37EC /* NetworkModels.swift in Sources */,
 				52DA84E42F3AF741008F37EC /* MultipeerManager.swift in Sources */,
 				52DA84E52F3AF741008F37EC /* MultiplayerDemoView.swift in Sources */,
+				F3BC9269241722C2D432B6D9 /* DeviceSessionManager.swift in Sources */,
+				BE2727E04CE0E1BEAFFF6B13 /* DisplayNavigationView.swift in Sources */,
+				E40548A794029AB760E4B1BA /* DisplayNavContentView.swift in Sources */,
+				ECB1513595ECCA5EDD1489D2 /* DisplayNavStreamView.swift in Sources */,
+				B067C0801A702E40CA8A453E /* DisplayNavNonStreamView.swift in Sources */,
+				928F0556A9162AB0988110F3 /* DisplayNavMapView.swift in Sources */,
+				3F221D448ECB508A0D1EC13D /* DisplayNavStreamSessionViewModel.swift in Sources */,
+				8EA885A9BC9F86E15CB5E257 /* DisplayViewModel.swift in Sources */,
+				3A780460F879809F536854C1 /* DisplayNavRouteEngine.swift in Sources */,
+				9438CCFA0C1503D3E105C1BC /* LocalizationController.swift in Sources */,
+				44F19D1F414658D01C5BFC76 /* NavigationHUDBuilder.swift in Sources */,
+				53FFCEF945F9C23A6092E8FE /* NavigationDestinationsBuilder.swift in Sources */,
+				016B7FD4EC9DE8DCF3423234 /* NavigationServiceProviding.swift in Sources */,
+				C0182AB694D959D3E1D68875 /* NavigationRouteSource.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -682,6 +755,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 95F7F3332DEF0D91006D1C1A /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
 			productName = MWDATCamera;
+		};
+		B26B0F009DAC1D1B201ED54C /* MWDATDisplay */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 95F7F3332DEF0D91006D1C1A /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATDisplay;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

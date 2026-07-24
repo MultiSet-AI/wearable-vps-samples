@@ -16,16 +16,23 @@ import SwiftUI
 struct StreamSessionView: View {
   let wearables: WearablesInterface
   @ObservedObject private var wearablesViewModel: WearablesViewModel
+  let deviceSessionManager: DeviceSessionManager
   @StateObject private var viewModel: StreamSessionViewModel
 
   /// Optional dismiss callback for when launched from FeatureSelectionView
   var onDismiss: (() -> Void)?
 
-  init(wearables: WearablesInterface, wearablesVM: WearablesViewModel, onDismiss: (() -> Void)? = nil) {
+  init(
+    wearables: WearablesInterface,
+    wearablesVM: WearablesViewModel,
+    deviceSessionManager: DeviceSessionManager,
+    onDismiss: (() -> Void)? = nil
+  ) {
     self.wearables = wearables
     self.wearablesViewModel = wearablesVM
+    self.deviceSessionManager = deviceSessionManager
     self.onDismiss = onDismiss
-    self._viewModel = StateObject(wrappedValue: StreamSessionViewModel(wearables: wearables))
+    self._viewModel = StateObject(wrappedValue: StreamSessionViewModel(wearables: wearables, sessionManager: deviceSessionManager))
   }
 
   var body: some View {

@@ -5,17 +5,22 @@ For license details, visit www.multiset.ai.
 Redistribution in source or binary forms must retain this notice.
 */
 
-//
-// StreamSessionViewModel.swift
-//
-// Core view model demonstrating video streaming from Meta wearable devices using the DAT SDK.
-// This class showcases the key streaming patterns: device selection, session management,
-// video frame handling, photo capture, and error handling.
-//
-
 import MWDATCamera
 import MWDATCore
 import SwiftUI
+
+/// Thread-safe one-shot flag protecting continuation resumption.
+private final class SSVMOnceFlag: @unchecked Sendable {
+  private let lock = NSLock()
+  private var isSet = false
+  func trySet() -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    guard !isSet else { return false }
+    isSet = true
+    return true
+  }
+}
 
 enum StreamingStatus {
   case streaming
@@ -39,7 +44,12 @@ class StreamSessionViewModel: ObservableObject {
   @Published var streamingStatus: StreamingStatus = .stopped
   @Published var showError: Bool = false
   @Published var errorMessage: String = ""
-  @Published var hasActiveDevice: Bool = false
+
+  /// Mirrors the app-wide DeviceSessionManager's device-availability signal.
+  /// Kept as a real @Published (rather than a computed passthrough) so this
+  /// ObservableObject's objectWillChange fires when the underlying @Observable
+  /// manager changes and SwiftUI views re-render.
+  @Published private(set) var hasActiveDevice: Bool = false
 
   var isStreaming: Bool {
     streamingStatus != .stopped
@@ -74,11 +84,17 @@ class StreamSessionViewModel: ObservableObject {
 
   /// Minimum confidence threshold for accepting localization results (40%)
   private let minimumConfidenceThreshold: Float = 0.4
+
+  /// Timestamp of the most recent video frame. Localizing a stale frame returns
+  /// where the user *was*, so the pose — and the 2D map — freeze in place.
+  private(set) var lastVideoFrameAt: Date?
+
+  /// Oldest a video frame may be to still be used for localization.
+  private let frameStalenessLimit: TimeInterval = 1.5
   private let speechManager = SpeechManager.shared
   // DAT SDK flow: DeviceSession → addStream → Stream
-  // In 0.7.0 the camera stream type was renamed StreamSession → Stream. We qualify
-  // it as MWDATCamera.Stream because SwiftUI/Foundation also expose a `Stream` type.
-  private var deviceSession: DeviceSession?
+  // We qualify it as MWDATCamera.Stream because SwiftUI/Foundation also expose a
+  // `Stream` type.
   private var streamSession: MWDATCamera.Stream?
   private let streamSessionConfig: StreamConfiguration
   // Listener tokens are used to manage DAT SDK event subscriptions
@@ -87,97 +103,49 @@ class StreamSessionViewModel: ObservableObject {
   private var errorListenerToken: AnyListenerToken?
   private var photoDataListenerToken: AnyListenerToken?
   private let wearables: WearablesInterface
-  private let deviceSelector: AutoDeviceSelector
-  private var deviceMonitorTask: Task<Void, Never>?
-  private var deviceStateObserverTask: Task<Void, Never>?
+  /// App-wide session owner. Device session acquisition/teardown is delegated
+  /// entirely to this manager — this VM only owns the video Stream built on top of it.
+  private let sessionManager: DeviceSessionManager
+  private var deviceAvailabilityTask: Task<Void, Never>?
 
-  init(wearables: WearablesInterface) {
+  init(wearables: WearablesInterface, sessionManager: DeviceSessionManager) {
     self.wearables = wearables
-    // Let the SDK auto-select from available devices
-    self.deviceSelector = AutoDeviceSelector(wearables: wearables)
+    self.sessionManager = sessionManager
     self.streamSessionConfig = StreamConfiguration(
       videoCodec: VideoCodec.raw,
       resolution: StreamingResolution.medium,
       frameRate: 24)
 
-    // Monitor device availability and pre-warm the device session so user-initiated
-    // streaming starts immediately. When a device disconnects we tear everything down.
-    deviceMonitorTask = Task { @MainActor [weak self] in
-      guard let self else { return }
-      for await device in self.deviceSelector.activeDeviceStream() {
-        self.hasActiveDevice = device != nil
-        if device != nil {
-          _ = await self.getDeviceSession()
-        } else {
-          self.handleDeviceLost()
-        }
+    self.hasActiveDevice = sessionManager.hasActiveDevice
+    startDeviceAvailabilityObserver()
+  }
+
+  /// Re-arming `withObservationTracking` loop that mirrors the @Observable
+  /// DeviceSessionManager's `hasActiveDevice` into this VM's @Published property,
+  /// so SwiftUI views observing this ObservableObject re-render on change.
+  private func startDeviceAvailabilityObserver() {
+    deviceAvailabilityTask = Task { @MainActor [weak self] in
+      while let self, !Task.isCancelled {
+        let current = self.sessionManager.hasActiveDevice
+        if current != self.hasActiveDevice { self.hasActiveDevice = current }
+        await self.awaitActiveDeviceChange()
       }
     }
   }
 
-  /// Return a DeviceSession in `.started` state, creating one if needed and awaiting
-  /// the state transition via `stateStream()`. Returns nil if creation or start fails.
-  /// In 0.6.0, `DeviceSession.stopped` is terminal — a stopped session cannot be
-  /// restarted, so we discard it and create a fresh one.
-  private func getDeviceSession() async -> DeviceSession? {
-    if let session = deviceSession, session.state == .started {
-      return session
-    }
-
-    if deviceSession?.state == .stopped {
-      deviceStateObserverTask?.cancel()
-      deviceStateObserverTask = nil
-      deviceSession = nil
-    }
-
-    guard deviceSession == nil else { return nil }
-
-    do {
-      let session = try wearables.createSession(deviceSelector: deviceSelector)
-      deviceSession = session
-
-      let stateStream = session.stateStream()
-      try session.start()
-
-      for await state in stateStream {
-        if state == .started {
-          startDeviceStateObserver(for: session)
-          return session
-        } else if state == .stopped {
-          deviceSession = nil
-          return nil
-        }
+  private func awaitActiveDeviceChange() async {
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+      let once = SSVMOnceFlag()
+      withObservationTracking {
+        _ = self.sessionManager.hasActiveDevice
+      } onChange: {
+        if once.trySet() { continuation.resume() }
       }
-    } catch {
-      showError("Failed to create session: \(error.localizedDescription)")
-      deviceSession = nil
-    }
-    return nil
-  }
-
-  private func startDeviceStateObserver(for session: DeviceSession) {
-    deviceStateObserverTask?.cancel()
-    deviceStateObserverTask = Task { @MainActor [weak self] in
-      for await state in session.stateStream() {
-        guard let self else { return }
-        if state == .stopped {
-          self.deviceSession = nil
-          self.streamSession = nil
-          self.clearStreamListeners()
-          return
-        }
+      Task {
+        try? await Task.sleep(for: .seconds(2))
+        if once.trySet() { continuation.resume() }
       }
     }
-  }
-
-  private func handleDeviceLost() {
-    deviceStateObserverTask?.cancel()
-    deviceStateObserverTask = nil
-    deviceSession?.stop()
-    deviceSession = nil
-    streamSession = nil
-    clearStreamListeners()
-    streamingStatus = .stopped
   }
 
   private func clearStreamListeners() {
@@ -199,6 +167,7 @@ class StreamSessionViewModel: ObservableObject {
         guard let self else { return }
         if let image = videoFrame.makeUIImage() {
           self.currentVideoFrame = image
+          self.lastVideoFrameAt = Date()
           if !self.hasReceivedFirstFrame {
             self.hasReceivedFirstFrame = true
           }
@@ -220,17 +189,10 @@ class StreamSessionViewModel: ObservableObject {
       Task { @MainActor [weak self] in
         guard let self else { return }
         if let uiImage = UIImage(data: photoData.data) {
+          // Captured photos are only ever user-initiated — localization runs off
+          // the live video frame and never calls capturePhoto().
           self.capturedPhoto = uiImage
-
-          // If we're localizing, downscale to half resolution (540x720) before
-          // sending — the API rejects images with max side > 1280, and Ray-Ban
-          // Meta captures come in at 1080x1440.
-          if self.isLocalizing {
-            let (jpegData, image) = Self.resizeCaptureForLocalization(uiImage) ?? (photoData.data, uiImage)
-            await self.performLocalization(jpegData: jpegData, image: image)
-          } else {
-            self.showPhotoPreview = true
-          }
+          self.showPhotoPreview = true
         }
       }
     }
@@ -238,10 +200,9 @@ class StreamSessionViewModel: ObservableObject {
 
   deinit {
     // Cancel all tasks to prevent memory leaks
-    deviceMonitorTask?.cancel()
-    deviceStateObserverTask?.cancel()
     timerTask?.cancel()
     periodicLocalizationTask?.cancel()
+    deviceAvailabilityTask?.cancel()
   }
 
   func handleStartStreaming() async {
@@ -269,9 +230,18 @@ class StreamSessionViewModel: ObservableObject {
     remainingTime = 0
     stopTimer()
 
-    // In 0.6.0, the DeviceSession must reach `.started` before `addStream` will
-    // succeed. `getDeviceSession` handles creation + the state-stream await.
-    guard let deviceSession = await getDeviceSession(), deviceSession.state == .started else {
+    // The DeviceSession must reach `.started` before `addStream` will succeed.
+    // `sessionManager.getSession()` handles creation + the state-stream await,
+    // and is shared app-wide so this VM never owns a private device session.
+    let deviceSession: DeviceSession
+    do {
+      deviceSession = try await sessionManager.getSession()
+    } catch {
+      showError("Failed to start session: \(error.localizedDescription)")
+      return
+    }
+    guard deviceSession.state == .started else {
+      showError("Device session is not ready. Please try again.")
       return
     }
 
@@ -305,7 +275,9 @@ class StreamSessionViewModel: ObservableObject {
     currentVideoFrame = nil
     hasReceivedFirstFrame = false
     await stream.stop()
-    // Keep DeviceSession alive so a subsequent startSession() can re-addStream quickly.
+    // Release the shared device session back to DeviceSessionManager (a no-op if
+    // keepAlive is set, e.g. a Display capability is attached elsewhere).
+    sessionManager.stopCurrentSession()
   }
 
   func dismissError() {
@@ -354,37 +326,92 @@ class StreamSessionViewModel: ObservableObject {
 
     isSilentLocalization = false
     isLocalizing = true
-    localizationStatus = .capturing
     localizationResult = nil
 
     // Play localizing audio file instead of speech
     NavigationAudioService.shared.playLocalizationAudio(.localizing)
 
-    // Capture photo - the listener will handle sending to API
-    _ = streamSession?.capturePhoto(format: .jpeg)
+    // Localize from the live video frame. Never call capturePhoto() while the
+    // stream is running: on SDK 0.8 it permanently stalls video frame delivery,
+    // which freezes the pose (and the 2D map) for the rest of the session.
+    if let frame = freshVideoFrame {
+      localizationStatus = .localizing
+      Task { @MainActor in
+        await localizeUsing(frame: frame, onEncodeFailure: "Couldn't encode the camera frame.")
+      }
+    } else {
+      // No fresh frame right now (stream still warming up or recovering) —
+      // wait briefly for the next one rather than capturing a photo.
+      localizationStatus = .capturing
+      Task { @MainActor in
+        guard let frame = await waitForFreshFrame(timeout: 5) else {
+          isLocalizing = false
+          localizationStatus = .error
+          showError("Couldn't get a camera frame from the glasses. Check that the stream is running and try again.")
+          return
+        }
+        localizationStatus = .localizing
+        await localizeUsing(frame: frame, onEncodeFailure: "Couldn't encode the camera frame.")
+      }
+    }
   }
 
   /// Trigger localization silently (no audio feedback).
   /// Used for periodic multiplayer re-localization.
-  /// Uses current video frame directly to skip Bluetooth photo capture round-trip.
   func localizeSilently() {
     guard canLocalize else { return }
 
     isSilentLocalization = true
     isLocalizing = true
 
-    // Use current video frame for faster localization
-    if let frame = currentVideoFrame,
-       let jpegData = frame.jpegData(compressionQuality: 0.85) {
-      localizationStatus = .localizing
-      Task { @MainActor in
-        await performLocalization(jpegData: jpegData, image: frame)
-      }
-    } else {
-      // Fallback to photo capture if no video frame
-      localizationStatus = .capturing
-      _ = streamSession?.capturePhoto(format: .jpeg)
+    // Skip the cycle when there is no fresh frame — never capture a photo mid-stream.
+    guard let frame = freshVideoFrame else {
+      isLocalizing = false
+      return
     }
+    localizationStatus = .localizing
+    Task { @MainActor in
+      await localizeUsing(frame: frame, onEncodeFailure: nil)
+    }
+  }
+
+  /// The current video frame, but only if it is recent enough to describe where
+  /// the user is *now*.
+  private var freshVideoFrame: UIImage? {
+    guard let frame = currentVideoFrame, let at = lastVideoFrameAt,
+      Date().timeIntervalSince(at) < frameStalenessLimit
+    else { return nil }
+    return frame
+  }
+
+  /// Encodes off the main actor, then localizes. Keeping the JPEG encode off the
+  /// main actor leaves it free to drain incoming video frames.
+  private func localizeUsing(frame: UIImage, onEncodeFailure message: String?) async {
+    guard let jpegData = await Self.encodeJPEG(frame) else {
+      isLocalizing = false
+      if let message {
+        localizationStatus = .error
+        showError(message)
+      }
+      return
+    }
+    await performLocalization(jpegData: jpegData, image: frame)
+  }
+
+  /// Waits up to `timeout` for a video frame fresh enough to localize against.
+  private func waitForFreshFrame(timeout: TimeInterval) async -> UIImage? {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline, !Task.isCancelled {
+      if let frame = freshVideoFrame { return frame }
+      try? await Task.sleep(nanoseconds: 100_000_000)
+    }
+    return nil
+  }
+
+  private static func encodeJPEG(_ image: UIImage) async -> Data? {
+    await Task.detached(priority: .userInitiated) {
+      image.jpegData(compressionQuality: 0.75)
+    }.value
   }
 
   private func performLocalization(jpegData: Data, image: UIImage) async {
@@ -413,11 +440,9 @@ class StreamSessionViewModel: ObservableObject {
           // Log the low confidence for debugging
           print("Localization confidence too low: \(String(format: "%.1f%%", confidence * 100)) (threshold: \(String(format: "%.0f%%", minimumConfidenceThreshold * 100)))")
 
-          // Schedule immediate retry if navigation is active, otherwise just reset
-          if isNavigationActive {
-            scheduleNextLocalization()
-          } else {
-            // For manual localization, retry automatically after a short delay
+          // During navigation the periodic loop retries on its own; for manual
+          // localization, retry automatically after a short delay.
+          if !isNavigationActive {
             Task { @MainActor in
               try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
               if self.streamingStatus == .streaming && !self.isLocalizing {
@@ -454,11 +479,6 @@ class StreamSessionViewModel: ObservableObject {
         }
       }
 
-      // Schedule next localization if navigation is active
-      if isNavigationActive {
-        scheduleNextLocalization()
-      }
-
       isSilentLocalization = false
     } catch {
       isLocalizing = false
@@ -467,11 +487,6 @@ class StreamSessionViewModel: ObservableObject {
       if !isNavigationActive && !isSilentLocalization {
         NavigationAudioService.shared.playLocalizationAudio(.failed)
         showError("Localization failed: \(error.localizedDescription)")
-      }
-
-      // Schedule next localization even on error if navigation is active
-      if isNavigationActive {
-        scheduleNextLocalization()
       }
 
       isSilentLocalization = false
@@ -514,32 +529,42 @@ class StreamSessionViewModel: ObservableObject {
     stopPeriodicLocalization()
   }
 
-  /// Start periodic localization for navigation
-  /// Triggers immediately and continues after each response with 200ms delay
+  /// Start periodic localization for navigation.
+  ///
+  /// A resilient repeating loop that ticks for as long as navigation is active,
+  /// localizing from the live video frame. Transient conditions (stream paused,
+  /// a manual localization in flight, no fresh frame) skip the tick and retry,
+  /// so a single bad tick can never end the loop.
   private func startPeriodicLocalization() {
     stopPeriodicLocalization()
-    // Trigger first localization immediately
-    localizeForNavigation()
-  }
-
-  /// Schedule next localization after current one completes (called from performLocalization)
-  private func scheduleNextLocalization() {
-    periodicLocalizationTask?.cancel()
     periodicLocalizationTask = Task { @MainActor [weak self] in
-      // Short delay before next localization (video frame approach is fast, no Bluetooth wait)
-      try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+      var lastStaleLogAt = Date.distantPast
+      while !Task.isCancelled {
+        guard let self, self.isNavigationActive else { return }
 
-      guard let self, !Task.isCancelled, self.isNavigationActive else { return }
+        // Navigation service stopped on its own (e.g. destination reached).
+        if !self.navigationService.isNavigating {
+          self.isNavigationActive = false
+          return
+        }
 
-      // Check if navigation service has stopped (e.g., destination reached)
-      if !self.navigationService.isNavigating {
-        self.isNavigationActive = false
-        return
-      }
+        if !self.isLocalizing, self.streamingStatus == .streaming {
+          if let frame = self.freshVideoFrame {
+            self.isLocalizing = true
+            self.localizationStatus = .localizing
+            await self.localizeUsing(frame: frame, onEncodeFailure: nil)
+          } else if Date().timeIntervalSince(lastStaleLogAt) > 3 {
+            // Stream stalled — localizing the stale frame would report where the
+            // user was and freeze the map. Skip the tick; log at most every ~3s.
+            lastStaleLogAt = Date()
+            let age = Date().timeIntervalSince(self.lastVideoFrameAt ?? .distantPast)
+            print("Skipping nav localization: video frame is \(String(format: "%.1f", age))s old — stream stalled?")
+          }
+        }
 
-      // Trigger next localization if still streaming
-      if !self.isLocalizing && self.streamingStatus == .streaming {
-        self.localizeForNavigation()
+        // Breather after each response (or skipped tick) so the video stream keeps
+        // radio headroom and the main actor stays free to drain incoming frames.
+        try? await Task.sleep(nanoseconds: 400_000_000)
       }
     }
   }
@@ -548,30 +573,6 @@ class StreamSessionViewModel: ObservableObject {
   private func stopPeriodicLocalization() {
     periodicLocalizationTask?.cancel()
     periodicLocalizationTask = nil
-  }
-
-  /// Trigger localization during navigation using the current video frame directly.
-  /// This skips the Bluetooth photo capture round-trip (1-3s) by converting the
-  /// already-streaming video frame to JPEG on-device, dramatically reducing latency.
-  private func localizeForNavigation() {
-    guard streamingStatus == .streaming && !isLocalizing else { return }
-
-    // Use the current video frame instead of capturePhoto() to avoid Bluetooth round-trip
-    guard let frame = currentVideoFrame,
-          let jpegData = frame.jpegData(compressionQuality: 0.85) else {
-      // Fallback to photo capture if no video frame available
-      isLocalizing = true
-      localizationStatus = .capturing
-      _ = streamSession?.capturePhoto(format: .jpeg)
-      return
-    }
-
-    isLocalizing = true
-    localizationStatus = .localizing
-
-    Task { @MainActor in
-      await performLocalization(jpegData: jpegData, image: frame)
-    }
   }
 
   private func startTimer() {
@@ -598,31 +599,14 @@ class StreamSessionViewModel: ObservableObject {
     case .stopped:
       currentVideoFrame = nil
       streamingStatus = .stopped
+      // The stream stopped on its own (e.g. device error/disconnect) rather than
+      // via our own stopSession() — release the shared device session here too.
+      sessionManager.stopCurrentSession()
     case .waitingForDevice, .starting, .stopping, .paused:
       streamingStatus = .waiting
     case .streaming:
       streamingStatus = .streaming
     }
-  }
-
-  /// Downscale a Ray-Ban Meta capture (nominally 1080x1440) to the half-resolution
-  /// form expected by the localization API (max side 1280). Redrawing also bakes
-  /// EXIF orientation into the pixel buffer so the declared width/height match the
-  /// JPEG bytes that actually get uploaded.
-  private static func resizeCaptureForLocalization(_ image: UIImage) -> (Data, UIImage)? {
-    let targetSize = CGSize(
-      width: CGFloat(RayBanMetaIntrinsics.halfWidth),
-      height: CGFloat(RayBanMetaIntrinsics.halfHeight)
-    )
-    let format = UIGraphicsImageRendererFormat()
-    format.scale = 1.0
-    format.opaque = true
-    let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
-    let resized = renderer.image { _ in
-      image.draw(in: CGRect(origin: .zero, size: targetSize))
-    }
-    guard let jpegData = resized.jpegData(compressionQuality: 0.85) else { return nil }
-    return (jpegData, resized)
   }
 
   private func formatStreamingError(_ error: StreamError) -> String {

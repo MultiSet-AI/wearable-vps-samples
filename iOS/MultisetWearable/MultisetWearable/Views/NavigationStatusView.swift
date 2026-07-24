@@ -8,8 +8,8 @@ Redistribution in source or binary forms must retain this notice.
 import SwiftUI
 
 /// Floating status bar shown during active navigation
-struct NavigationStatusView: View {
-    @ObservedObject var navigationService: AudioNavigationService
+struct NavigationStatusView<Nav: NavigationServiceProviding>: View {
+    @ObservedObject var navigationService: Nav
     let onStopNavigation: () -> Void
 
     @State private var isExpanded: Bool = false

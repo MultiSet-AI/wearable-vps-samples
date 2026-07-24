@@ -13,6 +13,7 @@ import SwiftUI
 struct FeatureSelectionView: View {
     let wearables: WearablesInterface
     @ObservedObject var wearablesVM: WearablesViewModel
+    let deviceSessionManager: DeviceSessionManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var selectedFeature: AppFeature?
@@ -73,18 +74,28 @@ struct FeatureSelectionView: View {
                 LocalizationDemoView(
                     wearables: wearables,
                     wearablesVM: wearablesVM,
+                    deviceSessionManager: deviceSessionManager,
                     onDismiss: { selectedFeature = nil }
                 )
             case .navigation:
                 StreamSessionView(
                     wearables: wearables,
                     wearablesVM: wearablesVM,
+                    deviceSessionManager: deviceSessionManager,
+                    onDismiss: { selectedFeature = nil }
+                )
+            case .displayNavigation:
+                DisplayNavigationView(
+                    wearables: wearables,
+                    wearablesVM: wearablesVM,
+                    deviceSessionManager: deviceSessionManager,
                     onDismiss: { selectedFeature = nil }
                 )
             case .multiplayer:
                 MultiplayerDemoView(
                     wearables: wearables,
                     wearablesVM: wearablesVM,
+                    deviceSessionManager: deviceSessionManager,
                     onDismiss: { selectedFeature = nil }
                 )
             }
