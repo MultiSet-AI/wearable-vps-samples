@@ -11,7 +11,7 @@ A sample iOS application demonstrating Visual Positioning System (VPS) integrati
 - **Display Navigation**: Turn-by-turn navigation rendered on the Ray-Ban **Display** glasses HUD (requires Display-capable glasses)
 - **Multiplayer Demo**: Act as a client that joins a host running the MultiSet iOS SDK and streams its localized pose for real-time shared-space experiences
 - **Audio Feedback**: Navigation instructions played through the glasses speakers
-- **Optimized Streaming & Localization**: Session pre-warming, on-device image downscaling, video-frame fast path, and confidence-gated retries for low end-to-end latency
+- **Optimized Localization**: Video-frame fast path (no Bluetooth photo round-trip), confidence-gated retries, and a resilient periodic re-localization loop for low end-to-end latency
 
 ## Prerequisites
 
@@ -139,11 +139,11 @@ The app displays connection status on the home screen:
 2. The app automatically requests camera permission from your glasses
 3. Once granted, tap **"Start Streaming"** to begin the live video feed
 
-### Capturing Photos
+### Localizing
 
-During streaming, you can capture photos by:
-1. Tapping the **capture (localization) button** on screen
-2. The captured image will be used for localization
+During streaming, tap the **Localize** button to run VPS localization:
+1. The app grabs the current frame from the glasses' live video stream — no Bluetooth photo round-trip
+2. That frame is sent to the MultiSet VPS API, and the returned 6-DOF pose updates your position
 
 ---
 
@@ -151,24 +151,24 @@ During streaming, you can capture photos by:
 
 ### How Localization Works
 
-1. The app captures a photo from the glasses camera
+1. The app grabs the current frame from the glasses' live video stream
 2. The image is sent to the MultiSet VPS API with camera intrinsics
 3. The API returns the camera's 6-DOF pose (position + orientation) in the mapped environment
 4. Results include confidence score and position relative to the map origin
 
 ### Localization Request Payload
 
-The app sends a multipart/form-data request with the following fields. The examples shown are the values produced after the on-device downscale described in [Performance Optimizations](#performance-optimizations):
+The app sends a multipart/form-data request with the following fields. The example values correspond to the medium (504 × 896) streaming resolution the app localizes against (see [Camera Intrinsics](#camera-intrinsics)):
 
 | Field | Description | Example |
 |-------|-------------|---------|
-| `queryImage` | JPEG image from glasses camera (downscaled before upload) | Binary data |
-| `width` | Image width in pixels | `540` |
-| `height` | Image height in pixels | `720` |
-| `fx` | Focal length X (pixels) | `422.25` |
-| `fy` | Focal length Y (pixels) | `422.9` |
-| `px` | Principal point X | `270.35` |
-| `py` | Principal point Y | `363.75` |
+| `queryImage` | JPEG frame from the glasses' live video stream | Binary data |
+| `width` | Image width in pixels | `504` |
+| `height` | Image height in pixels | `896` |
+| `fx` | Focal length X (pixels) | `525.5` |
+| `fy` | Focal length Y (pixels) | `526.3` |
+| `px` | Principal point X | `252.0` |
+| `py` | Principal point Y | `448.0` |
 | `mapCode` | Target map identifier | `MAP_XXXXXXXXXX` |
 | `mapSetCode` | Map set identifier (optional) | `MAPSET_XXX` |
 | `isRightHanded` | Coordinate system flag (`false` for Unity/left-handed, `true` for ARKit/right-handed) | `false` |
@@ -196,19 +196,19 @@ The app sends a multipart/form-data request with the following fields. The examp
 
 ### Camera Intrinsics
 
-The app uses calibrated camera intrinsics for Ray-Ban Meta glasses. Three resolution presets are available, each with its own set of intrinsics. The localization API caps input images at 1280 px on the longest side, so the full-capture frame is downscaled before upload — the app picks the right set of intrinsics automatically.
+The app uses calibrated camera intrinsics for Ray-Ban Meta glasses. Three resolution presets are available, each with its own set of intrinsics. The localization API caps input images at 1280 px on the longest side; because the app localizes against the live video stream, the uploaded frame is already within that limit, and `LocalizationService` selects the matching intrinsics automatically by resolution.
 
-**Localization upload (540 × 720)** — full capture scaled 0.5× for the VPS API
+**Half-capture upload (540 × 720)** — a full 1080 × 1440 photo capture scaled 0.5× (the manual still-capture path)
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| Resolution | 540 × 720 | Half capture resolution used in the upload payload |
+| Resolution | 540 × 720 | Full capture downscaled 0.5× (still-capture path) |
 | Focal Length (fx) | 422.25 px | Scaled from calibrated fx (× 0.5) |
 | Focal Length (fy) | 422.9 px | Scaled from calibrated fy (× 0.5) |
 | Principal Point (px) | 270.35 px | Scaled principal point X |
 | Principal Point (py) | 363.75 px | Scaled principal point Y |
 
-**Medium streaming resolution (504 × 896)** — used for the live video feed and the fast-path navigation re-localization
+**Medium streaming resolution (504 × 896)** — the live video feed, and the frame uploaded for all fast-path localization
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
@@ -236,7 +236,7 @@ The navigation system provides turn-by-turn audio guidance from your current pos
 ```
 User Localizes → Selects POI → Path Calculated → Navigation Starts
                                       ↓
-           ← Position Updates ← Periodic Localization (200ms intervals)
+           ← Position Updates ← Periodic Localization (~400ms cadence)
                                       ↓
                         Turn-by-Turn Audio Instructions
                                       ↓
